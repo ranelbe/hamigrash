@@ -63,8 +63,28 @@ export async function POST() {
     }
 
     // 4. Assign roles.
-    // 4a. App admin
+    // 4a. App admin flag (bypasses RLS).
     await admin.from('app_admins').upsert({ user_id: ids.admin });
+
+    // 4a-bonus: Add the mock admin as manager of EVERY team and organiser
+    // of EVERY competition. The real owner of the app naturally ends up
+    // there because they created those rows (creating a team adds the
+    // creator as a team_member). Mirroring that gives the mock admin
+    // the same dashboard view ("בניהול שלי" lists everything).
+    const { data: allTeams } = await admin.from('teams').select('id');
+    if (allTeams?.length) {
+      await admin.from('team_members').upsert(
+        allTeams.map(t => ({ team_id: t.id, user_id: ids.admin, role: 'manager' })),
+        { onConflict: 'team_id,user_id' },
+      );
+    }
+    const { data: allCompsForAdmin } = await admin.from('competitions').select('id');
+    if (allCompsForAdmin?.length) {
+      await admin.from('competition_members').upsert(
+        allCompsForAdmin.map(c => ({ competition_id: c.id, user_id: ids.admin, role: 'organiser' })),
+        { onConflict: 'competition_id,user_id' },
+      );
+    }
 
     // 4b. Team manager — pick first non-pool team
     const { data: teams } = await admin
