@@ -11,9 +11,14 @@ export default async function ShareResolver({ params }: { params: { token: strin
     .single();
   if (!link) notFound();
 
-  if (link.competition?.slug) redirect(`/c/${link.competition.slug}`);
-  if (link.team?.slug) redirect(`/t/${link.team.slug}`);
-  if (link.match_id) redirect(`/m/${link.match_id}`);
-  if (link.player_id) redirect(`/p/${link.player_id}`);
+  // Supabase widens to-one joins as arrays — normalise to single objects.
+  const l = link as any;
+  const team = Array.isArray(l.team) ? l.team[0] : l.team;
+  const competition = Array.isArray(l.competition) ? l.competition[0] : l.competition;
+
+  if (competition?.slug) redirect(`/c/${competition.slug}`);
+  if (team?.slug) redirect(`/t/${team.slug}`);
+  if (l.match_id) redirect(`/m/${l.match_id}`);
+  if (l.player_id) redirect(`/p/${l.player_id}`);
   notFound();
 }

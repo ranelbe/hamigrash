@@ -27,8 +27,13 @@ export default async function CompetitionTeamsPage({ params }: { params: { id: s
     supabase.from('teams').select('id, name, primary_color, short_name, crest_shape, crest_text_color').order('name'),
   ]);
 
-  const enrolledIds = new Set((enrolled ?? []).map(e => e.team_id));
+  // Supabase widens to-one joins as arrays — flatten the team object.
+  const enrolledNormalized = ((enrolled ?? []) as any[]).map(e => ({
+    ...e,
+    team: Array.isArray(e.team) ? (e.team[0] ?? null) : (e.team ?? null),
+  }));
+  const enrolledIds = new Set(enrolledNormalized.map(e => e.team_id));
   const available = (allTeams ?? []).filter(t => !enrolledIds.has(t.id));
 
-  return <TeamsManager competitionId={comp.id} competitionName={comp.name} enrolled={enrolled ?? []} available={available} />;
+  return <TeamsManager competitionId={comp.id} competitionName={comp.name} enrolled={enrolledNormalized as any} available={available as any} />;
 }
