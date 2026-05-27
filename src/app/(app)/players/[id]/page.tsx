@@ -33,7 +33,8 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
   return (
     <div className="grid lg:grid-cols-[360px_1fr] gap-6">
       <div className="space-y-3">
-        <PlayerCard player={player as any} />
+        {/* Ratings panel — visible only to admins / team managers */}
+        {canEdit && <PlayerCard player={player as any} />}
 
         {/* Metadata strip — team + training group */}
         <Card>

@@ -15,7 +15,11 @@ const NAV = [
   { href: '/competitions', label: 'תחרויות',   icon: Trophy },
 ];
 
-export function AppShell({ children, user }: { children: React.ReactNode; user: { email: string; name?: string | null; avatar?: string | null } | null }) {
+export function AppShell({ children, user, isAdmin = false }: {
+  children: React.ReactNode;
+  user: { email: string; name?: string | null; avatar?: string | null } | null;
+  isAdmin?: boolean;
+}) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
@@ -76,8 +80,8 @@ export function AppShell({ children, user }: { children: React.ReactNode; user: 
                     <div className="absolute end-0 mt-2 w-56 z-40 rounded-xl2 bg-white dark:bg-ink-800 ring-1 ring-ink-200 dark:ring-ink-700 shadow-cardLg p-1">
                       <div className="px-3 py-2 text-xs text-ink-500 dark:text-ink-400 truncate">{user.email}</div>
                       <Link href="/invitations" onClick={() => setUserMenu(false)} className="block px-3 py-2 text-sm rounded-lg hover:bg-ink-100 dark:hover:bg-ink-700">הזמנות</Link>
-                      <Link href="/balancer" onClick={() => setUserMenu(false)} className="block px-3 py-2 text-sm rounded-lg hover:bg-ink-100 dark:hover:bg-ink-700">מאזן קבוצות</Link>
-                      <Link href="/training-groups" onClick={() => setUserMenu(false)} className="block px-3 py-2 text-sm rounded-lg hover:bg-ink-100 dark:hover:bg-ink-700">קבוצות אימון</Link>
+                      {isAdmin && <Link href="/balancer" onClick={() => setUserMenu(false)} className="block px-3 py-2 text-sm rounded-lg hover:bg-ink-100 dark:hover:bg-ink-700">מאזן קבוצות</Link>}
+                      {isAdmin && <Link href="/training-groups" onClick={() => setUserMenu(false)} className="block px-3 py-2 text-sm rounded-lg hover:bg-ink-100 dark:hover:bg-ink-700">קבוצות אימון</Link>}
                       <button onClick={logout} className="w-full text-start px-3 py-2 text-sm rounded-lg hover:bg-ink-100 dark:hover:bg-ink-700 inline-flex items-center gap-2">
                         <LogOut className="size-4" /> {he.nav.logout}
                       </button>

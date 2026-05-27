@@ -1,7 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
-import { PlayerCard } from '@/components/player/player-card';
 import { he } from '@/lib/i18n/he';
 
 export const revalidate = 60;
@@ -25,8 +24,18 @@ export default async function PublicPlayerPage({ params }: { params: { id: strin
           <span className="size-8 rounded-lg bg-pitch-600 text-white grid place-items-center">⚽</span>{he.app.name}
         </Link>
       </header>
-      <main className="max-w-3xl mx-auto p-6 grid lg:grid-cols-[360px_1fr] gap-6">
-        <PlayerCard player={player as any} />
+      <main className="max-w-3xl mx-auto p-6 space-y-6">
+        {/* Basic identity card (no ratings — those are admin-only). */}
+        <section className="rounded-xl2 bg-white dark:bg-ink-800 shadow-card border border-ink-100 dark:border-ink-700 p-6 flex items-center gap-4">
+          <div className="size-16 rounded-xl grid place-items-center text-2xl font-display font-bold text-white" style={{ background: player.team?.primary_color ?? '#475569' }}>
+            #{player.squad_number ?? '—'}
+          </div>
+          <div>
+            <h1 className="font-display text-2xl font-bold text-ink-900 dark:text-ink-50">{player.display_name}</h1>
+            <p className="text-sm text-ink-500 dark:text-ink-400">{he.player.positions[player.position as keyof typeof he.player.positions] ?? player.position}</p>
+          </div>
+        </section>
+
         <section className="rounded-xl2 bg-white dark:bg-ink-800 shadow-card border border-ink-100 dark:border-ink-700 p-6">
           <h2 className="font-display text-lg font-semibold mb-3 text-ink-900 dark:text-ink-50">סטטיסטיקה</h2>
           <div className="grid grid-cols-3 gap-3">

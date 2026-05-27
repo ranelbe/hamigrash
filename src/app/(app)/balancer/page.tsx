@@ -1,13 +1,15 @@
+import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { getIsAppAdmin } from '@/lib/auth/app-admin';
 import { BalancerWorkspace } from '@/components/balancer/workspace';
 
 export const dynamic = 'force-dynamic';
 
-// v2 — hard-cast to any to defeat Supabase's array widening of to-one joins.
 export default async function BalancerPage() {
-  const supabase = getSupabaseServerClient();
   const isAdmin = await getIsAppAdmin();
+  if (!isAdmin) redirect('/dashboard'); // Balancer is admin-only
+
+  const supabase = getSupabaseServerClient();
 
   const result = await supabase
     .from('players')
