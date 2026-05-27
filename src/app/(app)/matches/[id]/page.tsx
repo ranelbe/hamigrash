@@ -28,17 +28,39 @@ export default async function MatchDetailPage({ params }: { params: { id: string
   if (matchErr) console.error('match fetch error', matchErr);
   if (!match) notFound();
 
-  const [{ data: score }, { data: events }, { data: homePlayers }, { data: awayPlayers }, { data: { user } }] = await Promise.all([
+  // Players for each side come from team_rosters (the many-to-many junction).
+  // The roster row owns the squad_number for THIS team, while the player
+  // row owns identity. A player can be on both sides in different matches.
+  const loadRoster = (teamId: string) =>
+    supabase.from('team_rosters')
+      .select('squad_number, player:players(id, display_name, position, is_active)')
+      .eq('team_id', teamId)
+      .order('squad_number', { ascending: true });
+
+  const [{ data: score }, { data: events }, { data: homeRoster }, { data: awayRoster }, { data: { user } }] = await Promise.all([
     supabase.from('match_scores').select('home_goals, away_goals').eq('match_id', match.id).maybeSingle(),
     supabase.from('match_events')
       .select('id, event_type, period, minute, extra_minute, team_id, player_id, related_player_id, is_cancelled, payload, player:players(display_name)')
       .eq('match_id', match.id)
       .order('period').order('minute').order('extra_minute').order('recorded_at'),
-    supabase.from('players').select('id, display_name, squad_number, position').eq('team_id', match.home_team_id).eq('is_active', true).order('squad_number'),
-    supabase.from('players').select('id, display_name, squad_number, position').eq('team_id', match.away_team_id).eq('is_active', true).order('squad_number'),
+    loadRoster(match.home_team_id),
+    loadRoster(match.away_team_id),
     supabase.auth.getUser(),
   ]);
   (match as any).score = score ?? { home_goals: 0, away_goals: 0 };
+
+  // Flatten roster rows into the {id, display_name, squad_number, position}
+  // shape that the live tracker + retro score form expect.
+  const flattenRoster = (rows: any[] | null) =>
+    (rows ?? [])
+      .map(r => {
+        const p = Array.isArray(r.player) ? r.player[0] : r.player;
+        return p ? { ...p, squad_number: r.squad_number } : null;
+      })
+      .filter((p: any) => p && p.is_active !== false);
+
+  const homePlayers = flattenRoster(homeRoster);
+  const awayPlayers = flattenRoster(awayRoster);
 
   let canScore = false;
   let canManage = false;
