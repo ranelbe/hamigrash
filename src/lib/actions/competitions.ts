@@ -7,6 +7,18 @@ import { competitionCreateSchema, type CompetitionCreateInput } from '@/lib/sche
 import { generateRoundRobin } from '@/lib/algorithms/fixtures';
 import { generateKnockout } from '@/lib/algorithms/knockout';
 
+// Translate the most common Postgres error messages to Hebrew so the
+// user sees actionable feedback instead of raw SQL constraint names.
+function humaniseDbError(err: { code?: string; message: string }): Error {
+  if (err.code === '23505') {
+    if (err.message.includes('slug')) {
+      return new Error('כתובת ייחודית זו כבר תפוסה — בחר אחת אחרת');
+    }
+    return new Error('הערך הזה כבר קיים במערכת — נסה ערך אחר');
+  }
+  return new Error(err.message);
+}
+
 export async function createCompetition(input: CompetitionCreateInput) {
   const user = await requireCurrentUser();
   if (!(await getIsAppAdmin())) throw new Error('not_authorized: app_admin required');
@@ -17,7 +29,7 @@ export async function createCompetition(input: CompetitionCreateInput) {
     .insert({ ...parsed, status: 'active', created_by: user.id }) // skip 'draft' state for amateur leagues
     .select('*')
     .single();
-  if (error) throw new Error(error.message);
+  if (error) throw humaniseDbError(error);
   revalidatePath('/competitions');
   return data;
 }
@@ -26,7 +38,7 @@ export async function updateCompetition(competitionId: string, input: Partial<Co
   await requireCurrentUser();
   const supabase = getSupabaseServerClient();
   const { error } = await supabase.from('competitions').update(input).eq('id', competitionId);
-  if (error) throw new Error(error.message);
+  if (error) throw humaniseDbError(error);
   revalidatePath(`/competitions/${competitionId}`);
   revalidatePath('/competitions');
 }
