@@ -2,13 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { getSupabaseServerClient, requireCurrentUser } from '@/lib/supabase/server';
-import { canInvite } from '@/lib/auth/capabilities';
+import { getIsAppAdmin } from '@/lib/auth/app-admin';
 import { invitationCreateSchema, type InvitationCreateInput } from '@/lib/schemas';
 import { sendInvitationEmail } from '@/lib/email';
 
 export async function createInvitation(input: InvitationCreateInput) {
   const user = await requireCurrentUser();
-  if (!(await canInvite())) throw new Error('not_authorized');
+  // Invitations are admin-only — only the app owner gatekeeps access.
+  if (!(await getIsAppAdmin())) throw new Error('not_authorized');
   const parsed = invitationCreateSchema.parse(input);
   const supabase = getSupabaseServerClient();
 

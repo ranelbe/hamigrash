@@ -96,9 +96,11 @@ export default async function DashboardPage() {
                       <Link href={`/players?team=${t.id}`} title="הוספת שחקן" className="relative z-10 size-8 rounded-lg bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 grid place-items-center hover:bg-pitch-50 dark:hover:bg-pitch-950 hover:ring-pitch-300">
                         <UserPlus className="size-4" />
                       </Link>
-                      <Link href={`/invitations?team=${t.id}`} title="הזמנה" className="relative z-10 size-8 rounded-lg bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 grid place-items-center hover:bg-pitch-50 dark:hover:bg-pitch-950 hover:ring-pitch-300">
-                        <Mail className="size-4" />
-                      </Link>
+                      {isAdmin && (
+                        <Link href={`/invitations?team=${t.id}`} title="הזמנה" className="relative z-10 size-8 rounded-lg bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 grid place-items-center hover:bg-pitch-50 dark:hover:bg-pitch-950 hover:ring-pitch-300">
+                          <Mail className="size-4" />
+                        </Link>
+                      )}
                     </div>
                   </div>
                 ))}

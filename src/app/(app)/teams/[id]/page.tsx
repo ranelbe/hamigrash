@@ -90,7 +90,7 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>{he.team.members}</CardTitle>
-            {canManageThisTeam && <Link href={`/invitations?team=${team.id}`} className="text-sm text-pitch-700 hover:underline">{he.team.inviteMember}</Link>}
+            {isAdmin && <Link href={`/invitations?team=${team.id}`} className="text-sm text-pitch-700 hover:underline">{he.team.inviteMember}</Link>}
           </CardHeader>
           <CardBody>
             <ul className="space-y-3">
