@@ -7,34 +7,38 @@ import {
   dgQuery,
 } from '@/lib/data-gov';
 
-// GET /api/data-gov/streets?city=<city>[&q=<query>]
-//   `city` required (filter — the dataset is ~63K rows).
-//   Returns ALL streets in that city, alphabetically.
-//   `q` optional — narrows via CKAN full-text search.
-//   Cached 24h server-side per (city, q) combination.
+// GET /api/data-gov/streets?city=<city>
+//   Returns ALL streets in the given city.
+//
+// Why we don't use CKAN's `filters` for exact match: the streets dataset
+// stores city names with trailing whitespace (e.g. "תל אביב - יפו ")
+// while the cities dataset stores the clean form ("תל אביב - יפו").
+// Filter exact-match would miss everything.
+//
+// Strategy:
+//   1. Use `q=<city>` for a coarse full-text filter (cuts the working
+//      set from ~63K rows to a few thousand).
+//   2. Client-side, match by `שם_ישוב.trim() === city.trim()` so
+//      whitespace quirks don't break the lookup.
 export async function GET(req: NextRequest) {
   const city = req.nextUrl.searchParams.get('city')?.trim() ?? '';
-  const q    = req.nextUrl.searchParams.get('q')?.trim() ?? '';
   if (!city) return NextResponse.json({ results: [] });
 
   try {
-    const params: Record<string, string> = {
+    const json = await dgQuery({
       resource_id: DG_STREETS_RESOURCE,
-      filters: JSON.stringify({ [DG_STREETS_CITY_FIELD]: city }),
-      limit: '5000', // largest city (Tel Aviv) has ~2K streets — 5K is safe
-    };
-    if (q) params.q = q;
-    const json = await dgQuery(params);
+      q: city,
+      limit: '10000', // generous — Tel Aviv has ~2K, q-filter narrows the rest
+    });
     const records: any[] = json?.result?.records ?? [];
 
+    const cityKey = city.replace(/\s+/g, ' ').trim();
     const set = new Set<string>();
     for (const r of records) {
+      const recCity = String(r[DG_STREETS_CITY_FIELD] ?? '').replace(/\s+/g, ' ').trim();
+      if (recCity !== cityKey) continue;
       const name = cleanName(r[DG_STREETS_NAME_FIELD]);
-      if (!name) continue;
-      // CKAN's `q` is full-text — also matches the city name. Filter
-      // client-side so the user only sees streets that actually match.
-      if (q && !name.includes(q)) continue;
-      set.add(name);
+      if (name) set.add(name);
     }
     const results = Array.from(set).sort((a, b) => a.localeCompare(b, 'he'));
     return NextResponse.json({ results });
