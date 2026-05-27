@@ -40,8 +40,18 @@ export default async function MatchDetailPage({ params }: { params: { id: string
   ]);
   (match as any).score = score ?? { home_goals: 0, away_goals: 0 };
 
-  const canScore = !!user && await supabase.rpc('can_score_match' as any, { p_match_id: match.id }).then((r: any) => r.data === true).catch(() => false);
-  const canManage = !!user && await supabase.rpc('can_manage_match' as any, { p_match_id: match.id }).then((r: any) => r.data === true).catch(() => false);
+  let canScore = false;
+  let canManage = false;
+  if (user) {
+    try {
+      const r = await supabase.rpc('can_score_match' as any, { p_match_id: match.id });
+      canScore = r.data === true;
+    } catch { /* default false */ }
+    try {
+      const r = await supabase.rpc('can_manage_match' as any, { p_match_id: match.id });
+      canManage = r.data === true;
+    } catch { /* default false */ }
+  }
 
   const m: any = match;
 
