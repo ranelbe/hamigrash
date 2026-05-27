@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg: #f8fafc;
+  --fg: #0f172a;
+  color-scheme: light;
+}
+
+html, body { background: var(--bg); color: var(--fg); }
+body { font-feature-settings: "kern", "liga", "calt"; }
+
+/* Make sure any leftover `dark:` classes from earlier dev never trigger,
+   in case a stray bit of code adds `dark` to <html>. */
+html.dark { color-scheme: light !important; }
+
+/* RTL-aware focus ring */
+:focus-visible {
+  outline: 2px solid #16a34a;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* Tabular numerals for scores/standings */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Live indicator pulse */
+@keyframes livePulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: .35; }
+}
+.live-dot { animation: livePulse 1.4s ease-in-out infinite; }

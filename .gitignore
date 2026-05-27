@@ -1,0 +1,96 @@
+# ============================================================
+# HaMigrash — .gitignore
+# Standard Next.js + Supabase project. Excludes:
+#   - dependencies (node_modules)
+#   - build output (.next, out, dist)
+#   - secrets (.env*)
+#   - OS / editor cruft
+# ============================================================
+
+# Dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+package-lock.json.bak
+
+# Next.js build output
+/.next/
+/out/
+/dist/
+/build/
+*.tsbuildinfo
+next-env.d.ts
+
+# Production / hosting
+/.vercel
+.netlify
+
+# Environment variables — NEVER commit secrets
+.env
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env*.local
+
+# Supabase CLI local state
+.supabase/
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.pnpm-store/
+logs
+*.log
+
+# Coverage / test artefacts
+/coverage
+.nyc_output
+*.lcov
+
+# Cache
+.cache/
+.parcel-cache/
+.turbo
+.swc/
+.eslintcache
+
+# Editor / IDE
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+.history/
+
+# OS junk
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Local DB dumps / SQL backups (manual exports we don't want in git)
+*.sql.bak
+/supabase/dumps/
+
+# TypeScript build state
+*.tsbuildinfo
+
+# Misc local artefacts
+*.pid
+*.pid.lock
+.tmp/
+tmp/
