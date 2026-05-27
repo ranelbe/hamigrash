@@ -16,16 +16,31 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
   const { data: { user } } = await supabase.auth.getUser();
   const { data: player } = await supabase
     .from('players')
-    .select('*, team:teams(id, name, slug, primary_color, short_name), training_group:training_groups(id, name)')
+    .select('*, training_group:training_groups(id, name)')
     .eq('id', params.id)
     .single();
   if (!player) notFound();
 
-  const [isAdmin, { data: tm }] = await Promise.all([
+  // All teams this player is currently rostered on (many-to-many).
+  const { data: playerTeamsRaw } = await supabase
+    .from('team_rosters')
+    .select('squad_number, team:teams(id, name, slug, primary_color, short_name)')
+    .eq('player_id', player.id);
+  const playerTeams = (playerTeamsRaw ?? []).map((r: any) => {
+    const t = Array.isArray(r.team) ? r.team[0] : r.team;
+    return t ? { ...t, squad_number: r.squad_number } : null;
+  }).filter(Boolean);
+
+  const teamIds = playerTeams.map((t: any) => t.id);
+  const [isAdmin, { data: managedRows }] = await Promise.all([
     getIsAppAdmin(),
-    user ? supabase.from('team_members').select('role').eq('team_id', player.team_id).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+    user && teamIds.length > 0
+      ? supabase.from('team_members').select('role, team_id').eq('user_id', user.id).in('team_id', teamIds)
+      : Promise.resolve({ data: [] as any[] }),
   ]);
-  const canEdit = isAdmin || ['manager', 'assistant'].includes((tm as any)?.role ?? '');
+  const canEdit = isAdmin || (managedRows ?? []).some((r: any) =>
+    ['manager', 'assistant'].includes(r?.role ?? ''),
+  );
 
   const { data: stats } = await supabase.rpc('player_stats', { p_player_id: params.id });
   const s = (stats?.[0] ?? {}) as Record<string, number>;
@@ -36,15 +51,27 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
         {/* Ratings panel — visible only to admins / team managers */}
         {canEdit && <PlayerCard player={player as any} />}
 
-        {/* Metadata strip — team + training group */}
+        {/* Metadata strip — teams + training group */}
         <Card>
           <CardBody className="space-y-2">
-            {player.team && (
-              <Link href={`/teams/${player.team.id}`} className="flex items-center gap-2 text-sm hover:underline">
-                <ShieldCheck className="size-4 text-ink-500" />
-                <span className="text-ink-500">קבוצה:</span>
-                <span className="font-medium text-ink-900">{(player.team as any).name}</span>
-              </Link>
+            {playerTeams.length > 0 && (
+              <div className="flex items-start gap-2 text-sm">
+                <ShieldCheck className="size-4 text-ink-500 mt-0.5" />
+                <span className="text-ink-500 shrink-0">
+                  {playerTeams.length === 1 ? 'קבוצה:' : `קבוצות (${playerTeams.length}):`}
+                </span>
+                <div className="flex flex-wrap gap-1.5">
+                  {playerTeams.map((t: any) => (
+                    <Link
+                      key={t.id}
+                      href={`/teams/${t.id}`}
+                      className="font-medium text-ink-900 dark:text-ink-100 hover:underline"
+                    >
+                      {t.name}{t.squad_number ? ` (#${t.squad_number})` : ''}
+                    </Link>
+                  ))}
+                </div>
+              </div>
             )}
             <div className="flex items-center gap-2 text-sm">
               <CalendarDays className="size-4 text-ink-500" />
@@ -73,8 +100,8 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
               <Pencil className="size-4" />{he.common.edit}
             </Link>
             <DeleteButton
-              action={async () => { 'use server'; await deletePlayer(player.id, player.team_id); }}
-              redirectTo={`/teams/${player.team_id}`}
+              action={async () => { 'use server'; await deletePlayer(player.id, playerTeams[0]?.id ?? null); }}
+              redirectTo={playerTeams[0]?.id ? `/teams/${playerTeams[0].id}` : '/players'}
               confirm={`מחיקת השחקן "${player.display_name}"?`}
             />
           </div>

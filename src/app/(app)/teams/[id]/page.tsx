@@ -26,12 +26,20 @@ export default async function TeamDetailPage({ params }: { params: { id: string 
   ]);
   const canManageThisTeam = isAdmin || ['manager', 'assistant'].includes((membership as any)?.role ?? '');
 
-  const { data: players } = await supabase
-    .from('players')
-    .select('id, display_name, squad_number, position, photo_url, rating_pace, rating_shooting, rating_passing, rating_dribbling, rating_defending, rating_physical')
+  // Read the squad from team_rosters (many-to-many). The roster row owns
+  // the squad_number for THIS team, while the player row owns identity +
+  // ratings. Players may also be members of other teams simultaneously.
+  const { data: roster } = await supabase
+    .from('team_rosters')
+    .select('squad_number, player:players(id, display_name, position, photo_url, is_active, rating_pace, rating_shooting, rating_passing, rating_dribbling, rating_defending, rating_physical)')
     .eq('team_id', team.id)
-    .eq('is_active', true)
     .order('squad_number', { ascending: true });
+  const players = (roster ?? [])
+    .map((r: any) => {
+      const p = Array.isArray(r.player) ? r.player[0] : r.player;
+      return p ? { ...p, squad_number: r.squad_number } : null;
+    })
+    .filter((p: any) => p && p.is_active !== false);
 
   const { data: members } = await supabase
     .from('team_members')

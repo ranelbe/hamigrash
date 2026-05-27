@@ -37,10 +37,11 @@ export async function updatePlayer(playerId: string, input: Partial<PlayerCreate
   revalidatePath(`/players/${playerId}`);
 }
 
-export async function deletePlayer(playerId: string, teamId: string) {
+export async function deletePlayer(playerId: string, teamId: string | null) {
   await requireCurrentUser();
   const supabase = getSupabaseServerClient();
   const { error } = await supabase.from('players').delete().eq('id', playerId);
-  if (error) throw new Error(error.message);
-  revalidatePath(`/teams/${teamId}`);
+  if (error) throw humaniseDbError(error);
+  if (teamId) revalidatePath(`/teams/${teamId}`);
+  revalidatePath('/players');
 }

@@ -72,21 +72,22 @@ export async function createTeamsFromBalancer(
   if (teamsErr) throw new Error(teamsErr.message);
   if (!createdTeams || createdTeams.length !== sides.length) throw new Error('team_creation_failed');
 
-  // MOVE players: update team_id (identity preserved → stat history intact).
-  // We null squad_numbers first so the (team_id, squad_number) unique constraint
-  // can't trip while we reassign sequentially.
+  // Add players to the new teams via team_rosters. Players keep any
+  // existing team memberships — the balancer no longer "moves" them
+  // (a player can be on multiple teams at once). Squad numbers are
+  // unique per (team, squad_number), so sequential 1..N within each
+  // new team is always safe.
   for (let i = 0; i < sides.length; i++) {
     const teamId = createdTeams[i].id;
     const ids = sides[i].player_ids;
     if (!ids.length) continue;
-    const { error: upErr } = await supabase
-      .from('players')
-      .update({ team_id: teamId, squad_number: null })
-      .in('id', ids);
-    if (upErr) throw new Error(upErr.message);
-    for (let j = 0; j < ids.length; j++) {
-      await supabase.from('players').update({ squad_number: j + 1 }).eq('id', ids[j]);
-    }
+    const rosterRows = ids.map((pid, j) => ({
+      team_id: teamId,
+      player_id: pid,
+      squad_number: j + 1,
+    }));
+    const { error: rErr } = await supabase.from('team_rosters').insert(rosterRows);
+    if (rErr) throw new Error(`roster_insert_failed: ${rErr.message}`);
   }
 
   // Optional: create a competition + enroll all teams + (optionally) generate fixtures.
