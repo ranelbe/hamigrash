@@ -9,13 +9,11 @@ export async function canCreateMatch(): Promise<boolean> {
   const supabase = getSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return false;
-  const [{ count: tm }, { count: co }] = await Promise.all([
-    supabase.from('team_members').select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id).in('role', ['manager', 'assistant']),
-    supabase.from('competition_members').select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id).in('role', ['organiser', 'admin']),
-  ]);
-  return (tm ?? 0) > 0 || (co ?? 0) > 0;
+  // Only competition organisers can create matches — team managers are
+  // intentionally excluded (conflict of interest with their own results).
+  const { count } = await supabase.from('competition_members').select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id).in('role', ['organiser', 'admin']);
+  return (count ?? 0) > 0;
 }
 
 export async function canCreatePlayer(): Promise<boolean> {
