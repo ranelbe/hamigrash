@@ -116,8 +116,10 @@ export async function createTeamsFromBalancer(
 
     if (compType === 'cup') {
       const bracket = generateKnockout(teamIds);
-      // Final-round date = start + (totalRounds - 1) × daysBetween.
       const totalCupRounds = Math.ceil(Math.log2(teamIds.length));
+      // hasByes = first-round count is below half the team count → some
+      // teams advance with a bye. Affects label naming for round 0.
+      const hasByes = bracket.length < Math.floor(teamIds.length / 2);
       endDate = totalCupRounds > 0
         ? new Date(startDate.getTime() + (totalCupRounds - 1) * dayMs)
         : startDate;
@@ -127,7 +129,7 @@ export async function createTeamsFromBalancer(
         away_team_id: m.away,
         scheduled_at: new Date(startDate.getTime() + m.round * dayMs).toISOString(),
         status: 'scheduled' as const,
-        round_label: cupRoundLabel(m.round, totalCupRounds),
+        round_label: cupRoundLabel(m.round, totalCupRounds, hasByes),
         format: opts.competition.format ?? '11v11',
         period_length_min: 25,
         number_of_periods: 2,
@@ -214,7 +216,11 @@ export async function createTeamsFromBalancer(
 
 // Cup round labels — Hebrew names by distance from the final.
 // totalRounds=3 ⇒ rounds [0,1,2] = [רבע גמר, חצי גמר, גמר].
-function cupRoundLabel(round: number, totalRounds: number): string {
+// When the bracket isn't a power of 2 (e.g. 10 teams) round 0 is a
+// "preliminary round" with fewer matches; we call it סיבוב מקדים instead
+// of the misleading שמינית גמר / שישית עשרה גמר.
+function cupRoundLabel(round: number, totalRounds: number, hasByes = false): string {
+  if (hasByes && round === 0) return 'סיבוב מקדים';
   const fromFinal = totalRounds - 1 - round;
   switch (fromFinal) {
     case 0: return 'גמר';

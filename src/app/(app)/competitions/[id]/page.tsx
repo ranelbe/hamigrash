@@ -13,6 +13,7 @@ import { MatchCard } from '@/components/match/match-card';
 import { TeamBadge } from '@/components/team/team-badge';
 import { GenerateFixturesButton } from './_fixtures-button';
 import { ShareLinkCard } from './_share-link';
+import { NextCupRoundButton } from '@/components/competition/next-cup-round-button';
 import { loadStandingsWithForm } from '@/lib/queries/standings';
 import { attachScores } from '@/lib/queries/match-scores';
 
@@ -125,10 +126,40 @@ export default async function CompetitionDetail({ params }: { params: { id: stri
         </Card>
       )}
 
+      {/* Cup-specific info banner — explains the bracket size + byes */}
+      {comp.type === 'cup' && (enrolled ?? []).length >= 2 && (() => {
+        const n = (enrolled ?? []).length;
+        const totalRounds = Math.ceil(Math.log2(n));
+        const totalGames = n - 1;
+        const round0 = Math.floor(n / 2);
+        const idealFirstRound = Math.pow(2, totalRounds - 1);
+        const byes = idealFirstRound - round0;
+        return (
+          <Card className="p-4 bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800">
+            <div className="text-sm text-amber-900 dark:text-amber-200 space-y-1">
+              <div className="font-medium">{n} קבוצות · {totalRounds} שלבים · {totalGames} משחקים סה"כ</div>
+              {byes > 0 ? (
+                <div>
+                  השלב הראשון מציג רק {round0} משחקים — {byes} קבוצות מקבלות <strong>bye</strong> ועוברות
+                  ישירות לשלב הבא. כשהשלב הנוכחי יסתיים, השלב הבא ייווצר אוטומטית עם הקבוצות שעלו.
+                </div>
+              ) : (
+                <div>
+                  הגביע מוצג שלב אחר שלב. עם סיום כל המשחקים בשלב, יווצר השלב הבא עם הזוכים.
+                </div>
+              )}
+            </div>
+          </Card>
+        );
+      })()}
+
       {/* Matches grouped by round */}
       {totalCount > 0 && (
         <Card>
-          <CardHeader><CardTitle>לוח משחקים</CardTitle></CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>לוח משחקים</CardTitle>
+            {canManage && comp.type === 'cup' && <NextCupRoundButton competitionId={comp.id} />}
+          </CardHeader>
           <CardBody className="space-y-6">
             {[...rounds.entries()].map(([round, ms]) => (
               <div key={round}>
