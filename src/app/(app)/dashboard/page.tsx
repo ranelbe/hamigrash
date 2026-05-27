@@ -71,13 +71,13 @@ export default async function DashboardPage() {
   const [activeComps, upcoming, recentResults] = await Promise.all([
     supabase.from('competitions').select('id, slug, name, type, status, season, format').in('status', ['active', 'draft']).order('created_at', { ascending: false }).limit(6),
     supabase.from('matches')
-      .select('id, scheduled_at, status, venue, home_team_id, away_team_id, competition_id, home:teams!home_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color), away:teams!away_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color)')
+      .select('id, scheduled_at, status, venue, round_label, home_team_id, away_team_id, competition_id, competition:competitions(id, name, type), home:teams!home_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color), away:teams!away_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color)')
       .eq('status', 'scheduled')
       .gte('scheduled_at', new Date().toISOString())
       .order('scheduled_at', { ascending: true })
       .limit(6),
     supabase.from('matches')
-      .select('id, finished_at, status, venue, home_team_id, away_team_id, home:teams!home_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color), away:teams!away_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color)')
+      .select('id, finished_at, status, venue, round_label, home_team_id, away_team_id, competition_id, competition:competitions(id, name, type), home:teams!home_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color), away:teams!away_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color)')
       .eq('status', 'finished')
       .order('finished_at', { ascending: false })
       .limit(6),
@@ -195,7 +195,7 @@ export default async function DashboardPage() {
               <div className="text-xs font-medium text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-2">המשחקים הקרובים שלי</div>
               <div className="space-y-2">
                 {myUpcoming.map((m: any) => (
-                  <MatchCard key={m.id} id={m.id} home={m.home} away={m.away} status={m.status} scheduledAt={m.scheduled_at} venue={m.venue} />
+                  <MatchCard key={m.id} {...matchCardProps(m)} scheduledAt={m.scheduled_at} />
                 ))}
               </div>
             </div>
@@ -267,7 +267,7 @@ export default async function DashboardPage() {
             {(upcoming.data ?? []).length === 0 ? <p className="text-sm text-ink-400">{he.dashboard.noMatches}</p> : (
               <div className="space-y-2">
                 {upcoming.data!.map((m: any) => (
-                  <MatchCard key={m.id} id={m.id} home={m.home} away={m.away} status={m.status} scheduledAt={m.scheduled_at} venue={m.venue} />
+                  <MatchCard key={m.id} {...matchCardProps(m)} scheduledAt={m.scheduled_at} />
                 ))}
               </div>
             )}
@@ -280,7 +280,7 @@ export default async function DashboardPage() {
             {recentWithScores.length === 0 ? <p className="text-sm text-ink-400">{he.dashboard.noResults}</p> : (
               <div className="space-y-2">
                 {recentWithScores.map((m: any) => (
-                  <MatchCard key={m.id} id={m.id} home={m.home} away={m.away} status={m.status} scheduledAt={m.finished_at} homeGoals={m.score?.home_goals} awayGoals={m.score?.away_goals} venue={m.venue} />
+                  <MatchCard key={m.id} {...matchCardProps(m)} scheduledAt={m.finished_at} homeGoals={m.score?.home_goals} awayGoals={m.score?.away_goals} />
                 ))}
               </div>
             )}
@@ -289,6 +289,24 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
+}
+
+// Pull the competition + round info off a `matches` row (PostgREST widens
+// to-one joins to arrays) into MatchCard's prop shape. Friendlies (no
+// competition) get type='friendly' so the card still shows a chip.
+function matchCardProps(m: any) {
+  const comp = Array.isArray(m.competition) ? m.competition[0] : m.competition;
+  return {
+    id: m.id,
+    home: m.home,
+    away: m.away,
+    status: m.status,
+    venue: m.venue,
+    competitionType: (comp ? comp.type : 'friendly') as 'league' | 'cup' | 'friendly',
+    competitionName: comp?.name ?? null,
+    competitionId: comp?.id ?? null,
+    roundLabel: m.round_label ?? null,
+  };
 }
 
 function QuickAction({ href, icon: Icon, label }: { href: string; icon: any; label: string }) {

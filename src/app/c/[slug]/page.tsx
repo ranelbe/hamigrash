@@ -77,6 +77,8 @@ export default async function PublicCompetitionPage({ params }: { params: { slug
                       awayGoals={m.score?.away_goals}
                       venue={m.venue}
                       href={`/m/${m.id}`}
+                      competitionType={comp.type as 'league' | 'cup'}
+                      roundLabel={m.round_label ?? null}
                     />
                   ))}
                 </div>

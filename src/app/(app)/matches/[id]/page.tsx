@@ -22,7 +22,7 @@ export default async function MatchDetailPage({ params }: { params: { id: string
              competition_id, home_team_id, away_team_id,
              home:teams!home_team_id(id, name, short_name, primary_color, crest_url),
              away:teams!away_team_id(id, name, short_name, primary_color, crest_url),
-             competition:competitions(id, name)`)
+             competition:competitions(id, name, type)`)
     .eq('id', params.id)
     .maybeSingle();
   if (matchErr) console.error('match fetch error', matchErr);
@@ -60,7 +60,23 @@ export default async function MatchDetailPage({ params }: { params: { id: string
       {/* Header */}
       <Card className="p-5">
         <div className="flex items-center justify-between mb-3 text-sm text-ink-500 dark:text-ink-400 gap-3 flex-wrap">
-          <div>{m.competition?.name ?? he.competition.types.friendly} {m.round_label ? `· ${m.round_label}` : ''}</div>
+          <div className="flex items-center gap-2 flex-wrap">
+            {(() => {
+              const comp: any = Array.isArray(m.competition) ? m.competition[0] : m.competition;
+              const compType: 'league' | 'cup' | 'friendly' = comp?.type ?? 'friendly';
+              const tone = compType === 'cup' ? 'warning' : compType === 'league' ? 'success' : 'neutral';
+              const label = compType === 'cup' ? 'גביע' : compType === 'league' ? 'ליגה' : 'ידידותי';
+              return (
+                <>
+                  <Badge tone={tone as any}>{label}</Badge>
+                  {comp?.name && (
+                    <Link href={`/competitions/${comp.id}`} className="font-medium text-ink-700 dark:text-ink-200 hover:underline">{comp.name}</Link>
+                  )}
+                  {m.round_label && <span>· {m.round_label}</span>}
+                </>
+              );
+            })()}
+          </div>
           <div className="flex items-center gap-2">
             <Badge tone={m.status === 'live' ? 'live' : m.status === 'finished' ? 'success' : 'neutral'}>
               {he.match[m.status as keyof typeof he.match] as string}

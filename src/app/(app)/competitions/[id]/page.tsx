@@ -145,6 +145,11 @@ export default async function CompetitionDetail({ params }: { params: { id: stri
                       homeGoals={m.score?.home_goals}
                       awayGoals={m.score?.away_goals}
                       venue={m.venue}
+                      // On the competition page we already know the type +
+                      // name (it's the page itself), so skip the redundant
+                      // name chip and only show the round label.
+                      competitionType={comp.type as 'league' | 'cup'}
+                      roundLabel={m.round_label ?? null}
                     />
                   ))}
                 </div>
