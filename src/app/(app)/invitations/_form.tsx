@@ -55,7 +55,7 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
     if (!parsed) { toast.error('יש לתקן את השדות המסומנים'); return; }
     setSubmitting(true);
     try {
-      await createInvitation(parsed);
+      await createInvitation(parsed as any);
       toast.success('ההזמנה נשלחה');
       setEmail(''); setMessage('');
       router.refresh();

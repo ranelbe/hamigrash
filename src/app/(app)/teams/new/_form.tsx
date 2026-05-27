@@ -76,11 +76,11 @@ export function TeamForm({ initial }: { initial?: TeamFormInitial }) {
     setSubmitting(true);
     try {
       if (editing) {
-        await updateTeam(initial!.id!, parsed);
+        await updateTeam(initial!.id!, parsed as any);
         toast.success('הקבוצה עודכנה');
         router.push(`/teams/${initial!.id}`);
       } else {
-        const team = await createTeam(parsed);
+        const team = await createTeam(parsed as any);
         toast.success('הקבוצה נוצרה');
         router.push(`/teams/${team.id}`);
       }

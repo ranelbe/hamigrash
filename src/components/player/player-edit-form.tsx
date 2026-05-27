@@ -70,7 +70,7 @@ export function PlayerEditForm({ player, trainingGroups }: { player: Player; tra
     if (!parsed) { toast.error('יש לתקן את השדות המסומנים'); return; }
     setSubmitting(true);
     try {
-      await updatePlayer(player.id, parsed);
+      await updatePlayer(player.id, parsed as any);
       toast.success('השחקן עודכן');
       router.push(`/players/${player.id}`);
     } catch (e: any) {

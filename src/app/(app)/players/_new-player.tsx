@@ -44,7 +44,7 @@ export function NewPlayerForm({ teams, trainingGroups, defaultTeam }: {
     if (!parsed) { toast.error('יש לתקן את השדות המסומנים'); return; }
     setSubmitting(true);
     try {
-      await createPlayer(parsed);
+      await createPlayer(parsed as any);
       toast.success('השחקן נוצר');
       setOpen(false);
       router.refresh();

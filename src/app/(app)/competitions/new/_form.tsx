@@ -69,11 +69,11 @@ export function CompetitionForm({ initial }: { initial?: CompetitionFormInitial 
     setSubmitting(true);
     try {
       if (editing) {
-        await updateCompetition(initial!.id!, parsed);
+        await updateCompetition(initial!.id!, parsed as any);
         toast.success('התחרות עודכנה');
         router.push(`/competitions/${initial!.id}`);
       } else {
-        const data = await createCompetition(parsed);
+        const data = await createCompetition(parsed as any);
         toast.success('התחרות נוצרה');
         router.push(`/competitions/${data.id}`);
       }

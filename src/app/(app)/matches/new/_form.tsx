@@ -70,7 +70,7 @@ export function MatchForm({ teams, competitions, initial }: Props) {
     setSubmitting(true);
     try {
       if (editing) {
-        await updateMatch(initial!.id!, parsed);
+        await updateMatch(initial!.id!, parsed as any);
         toast.success('המשחק עודכן');
         router.push(`/matches/${initial!.id}`);
       } else {
