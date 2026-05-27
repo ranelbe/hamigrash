@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/card';
 import { Input, Select } from '@/components/ui/input';
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { Button } from '@/components/ui/button';
 import { he } from '@/lib/i18n/he';
 import { toast } from '@/lib/stores/toast';
@@ -37,6 +38,8 @@ export function PlayerEditForm({ player, trainingGroups }: { player: Player; tra
     rating_gk_reflexes:     player.rating_gk_reflexes ?? '',
     rating_gk_speed:        player.rating_gk_speed ?? '',
     rating_gk_positioning:  player.rating_gk_positioning ?? '',
+    address_city:           (player as any).address_city ?? '',
+    address_street:         (player as any).address_street ?? '',
   });
 
   function set(key: keyof typeof f, value: string) {
@@ -65,6 +68,8 @@ export function PlayerEditForm({ player, trainingGroups }: { player: Player; tra
       rating_gk_reflexes:     num(f.rating_gk_reflexes),
       rating_gk_speed:        num(f.rating_gk_speed),
       rating_gk_positioning:  num(f.rating_gk_positioning),
+      address_city:   f.address_city.trim() || null,
+      address_street: f.address_street.trim() || null,
     };
     const parsed = validate(playerCreateSchema, payload);
     if (!parsed) { toast.error('יש לתקן את השדות המסומנים'); return; }
@@ -134,6 +139,36 @@ export function PlayerEditForm({ player, trainingGroups }: { player: Player; tra
                 <a href="/training-groups" className="underline text-pitch-700 dark:text-pitch-400">להוספת קבוצות אימון</a>
               </p>
             )}
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold text-ink-800 dark:text-ink-200 mb-1">כתובת</h4>
+            <p className="text-xs text-ink-500 dark:text-ink-400 mb-3">העיר והרחוב מאוכלסים מ-data.gov.il. אם לא נמצא — אפשר להקליד ידנית.</p>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <AddressAutocomplete
+                label="עיר"
+                placeholder="לדוגמה: תל אביב יפו"
+                value={f.address_city}
+                onChange={v => {
+                  setF(s => ({ ...s, address_city: v, address_street: '' }));
+                  clear('address_city');
+                  clear('address_street');
+                }}
+                fetchUrl={q => q.length >= 1 ? `/api/data-gov/cities?q=${encodeURIComponent(q)}` : null}
+                error={errors.address_city}
+              />
+              <AddressAutocomplete
+                label="רחוב"
+                placeholder={f.address_city ? 'התחל להקליד שם רחוב' : 'יש לבחור עיר תחילה'}
+                value={f.address_street}
+                onChange={v => set('address_street', v)}
+                fetchUrl={q => f.address_city
+                  ? `/api/data-gov/streets?city=${encodeURIComponent(f.address_city)}&q=${encodeURIComponent(q)}`
+                  : null}
+                disabled={!f.address_city}
+                error={errors.address_street}
+              />
+            </div>
           </div>
 
           <div>

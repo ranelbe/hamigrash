@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Pencil, CalendarDays, ShieldCheck } from 'lucide-react';
+import { Pencil, CalendarDays, ShieldCheck, MapPin } from 'lucide-react';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { getIsAppAdmin } from '@/lib/auth/app-admin';
 import { PlayerCard } from '@/components/player/player-card';
@@ -55,6 +55,15 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
                 return obj?.name ?? '—';
               })()}</span>
             </div>
+            {((player as any).address_city || (player as any).address_street) && (
+              <div className="flex items-center gap-2 text-sm">
+                <MapPin className="size-4 text-ink-500" />
+                <span className="text-ink-500">כתובת:</span>
+                <span className="font-medium text-ink-900">
+                  {[(player as any).address_street, (player as any).address_city].filter(Boolean).join(', ')}
+                </span>
+              </div>
+            )}
           </CardBody>
         </Card>
 

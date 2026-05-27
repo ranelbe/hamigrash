@@ -46,6 +46,8 @@ export const playerCreateSchema = z.object({
   rating_gk_reflexes: rating,
   rating_gk_speed: rating,
   rating_gk_positioning: rating,
+  address_city: z.string().max(80, { message: 'שם עיר ארוך מדי' }).optional().nullable(),
+  address_street: z.string().max(120, { message: 'שם רחוב ארוך מדי' }).optional().nullable(),
 });
 export type PlayerCreateInput = z.infer<typeof playerCreateSchema>;
 
