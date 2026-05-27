@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Pencil, CalendarDays, ShieldCheck, MapPin } from 'lucide-react';
+import { Pencil, CalendarDays, ShieldCheck, MapPin, Trophy } from 'lucide-react';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { getIsAppAdmin } from '@/lib/auth/app-admin';
 import { PlayerCard } from '@/components/player/player-card';
@@ -32,6 +32,49 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
   }).filter(Boolean);
 
   const teamIds = playerTeams.map((t: any) => t.id);
+
+  // Map each team → the competitions it's enrolled in, so we can group
+  // the player's teams under the competitions they actually compete in
+  // (a player in 'ליגת שלישי' shouldn't see 'גביע הסתיו' clumped in).
+  const { data: compTeamsRaw } = teamIds.length > 0
+    ? await supabase.from('competition_teams')
+        .select('team_id, competition:competitions(id, name, type, status, season)')
+        .in('team_id', teamIds)
+    : { data: [] as any[] };
+  // teamId → list of competitions this team participates in
+  const compsByTeam = new Map<string, any[]>();
+  for (const row of (compTeamsRaw ?? []) as any[]) {
+    const comp = Array.isArray(row.competition) ? row.competition[0] : row.competition;
+    if (!comp) continue;
+    const arr = compsByTeam.get(row.team_id) ?? [];
+    arr.push(comp);
+    compsByTeam.set(row.team_id, arr);
+  }
+  // Now build the inverted view: competitionId → list of player's teams in it
+  type GroupedComp = { competition: any | null; teams: any[] };
+  const groups = new Map<string, GroupedComp>();
+  const FRIENDLY_KEY = '__friendly__';
+  for (const t of playerTeams as any[]) {
+    const comps = compsByTeam.get(t.id) ?? [];
+    if (comps.length === 0) {
+      const g = groups.get(FRIENDLY_KEY) ?? { competition: null, teams: [] };
+      g.teams.push(t);
+      groups.set(FRIENDLY_KEY, g);
+    } else {
+      for (const c of comps) {
+        const g = groups.get(c.id) ?? { competition: c, teams: [] };
+        g.teams.push(t);
+        groups.set(c.id, g);
+      }
+    }
+  }
+  // Sorted: real competitions first (newest by season desc), friendlies last
+  const competitionGroups = Array.from(groups.values()).sort((a, b) => {
+    if (!a.competition) return 1;
+    if (!b.competition) return -1;
+    return (b.competition.season ?? '').localeCompare(a.competition.season ?? '');
+  });
+
   const [isAdmin, { data: managedRows }] = await Promise.all([
     getIsAppAdmin(),
     user && teamIds.length > 0
@@ -51,26 +94,37 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
         {/* Ratings panel — visible only to admins / team managers */}
         {canEdit && <PlayerCard player={player as any} />}
 
-        {/* Metadata strip — teams + training group */}
+        {/* Metadata strip — teams grouped by competition + training group */}
         <Card>
-          <CardBody className="space-y-2">
-            {playerTeams.length > 0 && (
-              <div className="flex items-start gap-2 text-sm">
-                <ShieldCheck className="size-4 text-ink-500 mt-0.5" />
-                <span className="text-ink-500 shrink-0">
-                  {playerTeams.length === 1 ? 'קבוצה:' : `קבוצות (${playerTeams.length}):`}
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {playerTeams.map((t: any) => (
-                    <Link
-                      key={t.id}
-                      href={`/teams/${t.id}`}
-                      className="font-medium text-ink-900 dark:text-ink-100 hover:underline"
-                    >
-                      {t.name}{t.squad_number ? ` (#${t.squad_number})` : ''}
-                    </Link>
-                  ))}
-                </div>
+          <CardBody className="space-y-3">
+            {competitionGroups.length > 0 && (
+              <div className="space-y-2">
+                {competitionGroups.map((g: any, idx: number) => (
+                  <div key={g.competition?.id ?? `friendly-${idx}`} className="text-sm">
+                    <div className="flex items-center gap-2 text-ink-500 dark:text-ink-400 mb-1">
+                      {g.competition ? <Trophy className="size-4" /> : <ShieldCheck className="size-4" />}
+                      <span>
+                        {g.competition
+                          ? <Link href={`/competitions/${g.competition.id}`} className="hover:underline font-medium text-ink-700 dark:text-ink-300">
+                              {g.competition.name}
+                            </Link>
+                          : 'ידידותיים / ללא תחרות'}
+                      </span>
+                    </div>
+                    <div className="ms-6 flex flex-wrap gap-1.5">
+                      {g.teams.map((t: any) => (
+                        <Link
+                          key={t.id}
+                          href={`/teams/${t.id}`}
+                          className="font-medium text-ink-900 dark:text-ink-100 hover:underline"
+                          style={{ borderInlineStart: `3px solid ${t.primary_color ?? '#94a3b8'}`, paddingInlineStart: '0.5rem' }}
+                        >
+                          {t.name}{t.squad_number ? ` (#${t.squad_number})` : ''}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
             <div className="flex items-center gap-2 text-sm">
