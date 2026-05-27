@@ -5,16 +5,18 @@ import { getSupabaseServerClient, requireCurrentUser } from '@/lib/supabase/serv
 import { getIsAppAdmin } from '@/lib/auth/app-admin';
 import { slugify } from '@/lib/utils';
 import { generateRoundRobin } from '@/lib/algorithms/fixtures';
+import { generateKnockout } from '@/lib/algorithms/knockout';
 
 type Side = { name: string; player_ids: string[] };
 
 type CompetitionConfig = {
   name: string;
+  type?: 'league' | 'cup';    // default 'league'
   format?: '5v5' | '6v6' | '7v7' | '8v8' | '9v9' | '10v10' | '11v11';
   generateFixtures?: boolean;
   startsOn?: string;          // YYYY-MM-DD
-  daysBetweenRounds?: number; // default 7
-  rounds?: 1 | 2 | 3 | 4;     // round-robin legs (default 1)
+  daysBetweenRounds?: number; // default 7 (cup: gap between rounds 0/1)
+  rounds?: 1 | 2 | 3 | 4;     // round-robin legs (default 1) — cup ignores this
 };
 
 const TEAM_COLORS = [
@@ -88,32 +90,73 @@ export async function createTeamsFromBalancer(
   if (opts.competition) {
     const ts = Date.now().toString(36);
     const compSlug = (slugify(opts.competition.name) || `comp-${ts}`).slice(0, 50);
+    const compType = opts.competition.type ?? 'league';
 
-    // Date math: fixture start → end is computed from the matchday count.
     const startDate = opts.competition.startsOn ? new Date(opts.competition.startsOn) : new Date();
     const daysBetween = Math.max(1, opts.competition.daysBetweenRounds ?? 7);
-    const compRoundCount = (opts.competition.rounds ?? 1);
     const teamIds = createdTeams.map(t => t.id);
-    const rounds = generateRoundRobin(teamIds, compRoundCount);
-    // ends_on = start + (matchdays - 1) * daysBetween (last matchday date).
-    const endDate = rounds.length > 0
-      ? new Date(startDate.getTime() + (rounds.length - 1) * daysBetween * 86400000)
-      : startDate;
-
     const ymd = (d: Date) => d.toISOString().slice(0, 10);
+    const dayMs = daysBetween * 86400000;
+
+    // Branch fixture strategy on competition type.
+    // - league: full round-robin (N teams × R legs)
+    // - cup:    single-elimination; only round-0 is pre-created here.
+    //           Subsequent rounds are added as winners are determined.
+    let matchRows: any[] = [];
+    let endDate = startDate;
+    let leagueRoundCount = 1; // only relevant for league
+
+    if (compType === 'cup') {
+      const bracket = generateKnockout(teamIds);
+      // Final-round date = start + (totalRounds - 1) × daysBetween.
+      const totalCupRounds = Math.ceil(Math.log2(teamIds.length));
+      endDate = totalCupRounds > 0
+        ? new Date(startDate.getTime() + (totalCupRounds - 1) * dayMs)
+        : startDate;
+      matchRows = bracket.map(m => ({
+        competition_id: undefined as any, // filled below after comp insert
+        home_team_id: m.home,
+        away_team_id: m.away,
+        scheduled_at: new Date(startDate.getTime() + m.round * dayMs).toISOString(),
+        status: 'scheduled' as const,
+        round_label: cupRoundLabel(m.round, totalCupRounds),
+        format: opts.competition.format ?? '11v11',
+        period_length_min: 25,
+        number_of_periods: 2,
+        created_by: user.id,
+      }));
+    } else {
+      leagueRoundCount = (opts.competition.rounds ?? 1);
+      const rrRounds = generateRoundRobin(teamIds, leagueRoundCount);
+      endDate = rrRounds.length > 0
+        ? new Date(startDate.getTime() + (rrRounds.length - 1) * dayMs)
+        : startDate;
+      matchRows = rrRounds.flatMap((round, idx) => round.map(([home, away]) => ({
+        competition_id: undefined as any,
+        home_team_id: home,
+        away_team_id: away,
+        scheduled_at: new Date(startDate.getTime() + idx * dayMs).toISOString(),
+        status: 'scheduled' as const,
+        round_label: `מחזור ${idx + 1}`,
+        format: opts.competition!.format ?? '11v11',
+        period_length_min: 25,
+        number_of_periods: 2,
+        created_by: user.id,
+      })));
+    }
 
     const { data: comp, error: cErr } = await supabase
       .from('competitions')
       .insert({
         name: opts.competition.name,
         slug: compSlug,
-        type: 'league',
+        type: compType,
         status: 'active',
         format: opts.competition.format ?? '11v11',
         season: new Date().getFullYear().toString(),
         starts_on: ymd(startDate),
         ends_on: ymd(endDate),
-        rounds: compRoundCount,
+        rounds: compType === 'cup' ? 1 : leagueRoundCount,
         created_by: user.id,
       })
       .select('id').single();
@@ -125,24 +168,11 @@ export async function createTeamsFromBalancer(
     const { error: eErr } = await supabase.from('competition_teams').insert(enrolRows);
     if (eErr) throw new Error(`enrol_failed: ${eErr.message}`);
 
-    if (opts.competition.generateFixtures) {
-      const dayMs = daysBetween * 86400000;
-      const matchRows = rounds.flatMap((round, idx) => round.map(([home, away]) => ({
-        competition_id: comp.id,
-        home_team_id: home,
-        away_team_id: away,
-        scheduled_at: new Date(startDate.getTime() + idx * dayMs).toISOString(),
-        status: 'scheduled' as const,
-        round_label: `מחזור ${idx + 1}`,
-        format: opts.competition!.format ?? '11v11',
-        period_length_min: 25,
-        number_of_periods: 2,
-        created_by: user.id,
-      })));
-      if (matchRows.length > 0) {
-        const { error: fxErr } = await supabase.from('matches').insert(matchRows);
-        if (fxErr) throw new Error(`fixtures_failed: ${fxErr.message}`);
-      }
+    if (opts.competition.generateFixtures && matchRows.length > 0) {
+      // Fill in the comp id now that we have it.
+      for (const r of matchRows) r.competition_id = comp.id;
+      const { error: fxErr } = await supabase.from('matches').insert(matchRows);
+      if (fxErr) throw new Error(`fixtures_failed: ${fxErr.message}`);
     }
     revalidatePath(`/competitions/${comp.id}`);
     revalidatePath('/competitions');
@@ -172,4 +202,18 @@ export async function createTeamsFromBalancer(
   revalidatePath('/teams');
   revalidatePath('/matches');
   return { teams: createdTeams, matchId, competitionId };
+}
+
+// Cup round labels — Hebrew names by distance from the final.
+// totalRounds=3 ⇒ rounds [0,1,2] = [רבע גמר, חצי גמר, גמר].
+function cupRoundLabel(round: number, totalRounds: number): string {
+  const fromFinal = totalRounds - 1 - round;
+  switch (fromFinal) {
+    case 0: return 'גמר';
+    case 1: return 'חצי גמר';
+    case 2: return 'רבע גמר';
+    case 3: return 'שמינית גמר';
+    case 4: return 'שישית עשרה גמר';
+    default: return `סיבוב ${round + 1}`;
+  }
 }

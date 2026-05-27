@@ -31,9 +31,10 @@ export function BalancerWorkspace({ players, isAdmin }: { players: BalancerPlaye
   const [result, setResult] = useState<{ teams: BalancerPlayer[][]; strengths: number[]; names: string[] } | null>(null);
   const [saveMatch, setSaveMatch] = useState(false);
   const [createComp, setCreateComp] = useState(false);
+  const [compType, setCompType] = useState<'league' | 'cup'>('league');
   const [compName, setCompName] = useState('');
   const [compFormat, setCompFormat] = useState<'5v5'|'6v6'|'7v7'|'8v8'|'9v9'|'10v10'|'11v11'>('11v11');
-  const [compRounds, setCompRounds] = useState<1 | 2 | 3 | 4>(1); // 1..4 round-robin legs
+  const [compRounds, setCompRounds] = useState<1 | 2 | 3 | 4>(1); // 1..4 round-robin legs (league only)
   const [genFixtures, setGenFixtures] = useState(true);
   const [compStart, setCompStart] = useState(() => new Date().toISOString().slice(0, 10));
   const [daysBetween, setDaysBetween] = useState(7);
@@ -66,7 +67,7 @@ export function BalancerWorkspace({ players, isAdmin }: { players: BalancerPlaye
       // a format that needs more players than the weakest roster has.
       const minSize = Math.min(...r.teams.map(t => t.length));
       setCompFormat(suggestFormat(minSize));
-      if (!compName) setCompName(`ליגה ${new Date().toLocaleDateString('he-IL')}`);
+      if (!compName) setCompName(`${compType === 'cup' ? 'גביע' : 'ליגה'} ${new Date().toLocaleDateString('he-IL')}`);
       setTimeout(() => document.getElementById('balancer-result')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 50);
     } catch (e: any) {
       console.error(e); toast.error(e.message ?? 'איזון נכשל');
@@ -103,6 +104,7 @@ export function BalancerWorkspace({ players, isAdmin }: { players: BalancerPlaye
           createMatch: saveMatch && !createComp,
           competition: createComp ? {
             name: compName.trim(),
+            type: compType,
             format: compFormat,
             generateFixtures: genFixtures,
             startsOn: compStart,
@@ -266,19 +268,58 @@ export function BalancerWorkspace({ players, isAdmin }: { players: BalancerPlaye
                   <label className="flex items-center gap-2 text-sm cursor-pointer">
                     <input type="checkbox" checked={createComp} onChange={e => { setCreateComp(e.target.checked); if (e.target.checked) setSaveMatch(false); }} className="rounded" />
                     <Trophy className="size-4 text-amber-500" />
-                    <span className="font-medium">צור גם תחרות (ליגה) עם {result.teams.length} הקבוצות</span>
+                    <span className="font-medium">צור גם תחרות עם {result.teams.length} הקבוצות</span>
                   </label>
                   {createComp && (() => {
                     const n = result.teams.length;
+                    // Stats per type
                     const matchdaysPerRound = n % 2 === 0 ? n - 1 : n;
                     const gamesPerMatchday = Math.floor(n / 2);
                     const totalMatchdays = matchdaysPerRound * compRounds;
                     const totalGames = gamesPerMatchday * matchdaysPerRound * compRounds;
+                    const cupRounds = Math.ceil(Math.log2(n));
+                    const cupRound0Games = Math.floor(n / 2);
+                    const cupTotalGames = n - 1; // single elimination
                     return (
                       <div className="mt-3 space-y-3">
-                        <Input label="שם התחרות" value={compName} onChange={e => setCompName(e.target.value)} placeholder="לדוגמה: ליגת ערב 2026" />
+                        {/* Type picker — ליגה / גביע */}
+                        <div>
+                          <div className="text-sm font-medium text-ink-800 dark:text-ink-200 mb-2">סוג תחרות</div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {([
+                              { v: 'league' as const, title: '🏟️ ליגה',  desc: 'כולם נגד כולם, טבלה' },
+                              { v: 'cup'    as const, title: '🏆 גביע',  desc: 'נוקאאוט, מנצח אחד' },
+                            ]).map(opt => (
+                              <button
+                                key={opt.v}
+                                type="button"
+                                onClick={() => {
+                                  setCompType(opt.v);
+                                  // refresh suggested name when type changes (only if user didn't customise)
+                                  if (compName === 'ליגה ' + new Date().toLocaleDateString('he-IL')
+                                   || compName === 'גביע ' + new Date().toLocaleDateString('he-IL')
+                                   || !compName) {
+                                    setCompName(`${opt.v === 'cup' ? 'גביע' : 'ליגה'} ${new Date().toLocaleDateString('he-IL')}`);
+                                  }
+                                }}
+                                className={cn(
+                                  'rounded-xl border-2 p-3 text-start transition-colors',
+                                  compType === opt.v
+                                    ? 'border-pitch-500 bg-pitch-50 dark:bg-pitch-950 dark:border-pitch-400'
+                                    : 'border-ink-100 hover:border-ink-300 dark:border-ink-700 dark:hover:border-ink-500',
+                                )}
+                              >
+                                <div className="font-semibold text-sm text-ink-900 dark:text-ink-50">{opt.title}</div>
+                                <div className="text-[11px] text-ink-500 dark:text-ink-400 mt-0.5">{opt.desc}</div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
 
-                        {/* Rounds (1–4 legs) */}
+                        <Input label="שם התחרות" value={compName} onChange={e => setCompName(e.target.value)} placeholder={compType === 'cup' ? 'לדוגמה: גביע הסתיו 2026' : 'לדוגמה: ליגת ערב 2026'} />
+
+                        {/* Rounds (1–4 legs) — league only */}
+                        {compType === 'league' && (
                         <div>
                           <div className="text-sm font-medium text-ink-800 dark:text-ink-200 mb-2">מספר סיבובים</div>
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -305,10 +346,11 @@ export function BalancerWorkspace({ players, isAdmin }: { players: BalancerPlaye
                             ))}
                           </div>
                         </div>
+                        )}
 
                         <div className="grid sm:grid-cols-2 gap-3">
                           <Input type="date" label="תחילת התחרות" value={compStart} onChange={e => setCompStart(e.target.value)} hint="מהתאריך הזה ייפרסו המשחקים" />
-                          <Input type="number" min={1} max={30} label="ימים בין מחזורים" value={daysBetween} onChange={e => setDaysBetween(+e.target.value || 7)} hint="לדוגמה 7 = מחזור בכל שבוע" />
+                          <Input type="number" min={1} max={30} label={compType === 'cup' ? 'ימים בין שלבי הגביע' : 'ימים בין מחזורים'} value={daysBetween} onChange={e => setDaysBetween(+e.target.value || 7)} hint="לדוגמה 7 = שלב/מחזור בכל שבוע" />
                         </div>
 
                         <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
@@ -316,10 +358,16 @@ export function BalancerWorkspace({ players, isAdmin }: { players: BalancerPlaye
                           <span>גם ייצור לוח משחקים אוטומטי</span>
                         </label>
 
-                        {genFixtures && (
+                        {genFixtures && compType === 'league' && (
                           <p className="text-xs text-ink-500 dark:text-ink-400">
                             {n} קבוצות · <strong>{totalMatchdays}</strong> מחזורים · <strong>{totalGames}</strong> משחקים ·
                             {' '}סיום בערך ב־{new Date(new Date(compStart).getTime() + (totalMatchdays - 1) * daysBetween * 86400000).toLocaleDateString('he-IL')}
+                          </p>
+                        )}
+                        {genFixtures && compType === 'cup' && (
+                          <p className="text-xs text-ink-500 dark:text-ink-400">
+                            {n} קבוצות · <strong>{cupRounds}</strong> שלבים · <strong>{cupTotalGames}</strong> משחקים סה"כ ·
+                            {' '}<strong>{cupRound0Games}</strong> משחקים בשלב הראשון · גמר בערך ב־{new Date(new Date(compStart).getTime() + (cupRounds - 1) * daysBetween * 86400000).toLocaleDateString('he-IL')}
                           </p>
                         )}
                       </div>
