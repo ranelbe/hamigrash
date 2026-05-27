@@ -1,10 +1,9 @@
 'use server';
 
 import { redirect } from 'next/navigation';
-import { getSupabaseAdminClient, getSupabaseServerClient } from '@/lib/supabase/server';
+import { getSupabaseServerClient } from '@/lib/supabase/server';
 
 // Whitelist of mock accounts we permit one-click login for.
-// Anything outside this list is rejected — even with the action being callable.
 const MOCK_EMAILS: Record<string, string> = {
   admin: 'admin@test.com',
   manager: 'manager@test.com',
@@ -12,28 +11,24 @@ const MOCK_EMAILS: Record<string, string> = {
   viewer: 'viewer@test.com',
 };
 
+// Shared password set by supabase/seed-mock-users.sql. The user never types
+// or sees this — it's hard-coded so one click logs them in cleanly.
+const MOCK_PASSWORD = 'Test1234!';
+
 export async function loginAsMock(formData: FormData) {
   const role = String(formData.get('role') ?? '');
   const email = MOCK_EMAILS[role];
   if (!email) throw new Error('invalid_mock_role');
 
-  // 1. Admin client mints a magic-link OTP for this mock user.
-  const admin = getSupabaseAdminClient();
-  const { data, error } = await admin.auth.admin.generateLink({
-    type: 'magiclink',
-    email,
-  });
-  if (error) throw new Error(error.message);
-  const tokenHash = (data as any)?.properties?.hashed_token;
-  if (!tokenHash) throw new Error('no_token_hash');
-
-  // 2. SSR client redeems the OTP — this sets the auth cookies on the response.
   const supabase = getSupabaseServerClient();
-  const { error: verifyError } = await supabase.auth.verifyOtp({
-    token_hash: tokenHash,
-    type: 'magiclink',
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password: MOCK_PASSWORD,
   });
-  if (verifyError) throw new Error(verifyError.message);
+  if (error) {
+    // Surface the real reason so we don't get an opaque "Application error" page.
+    throw new Error(`mock_login_failed: ${error.message}`);
+  }
 
   redirect('/dashboard');
 }
