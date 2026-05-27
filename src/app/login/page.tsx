@@ -4,13 +4,11 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { he } from '@/lib/i18n/he';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { loginAsMock } from '@/lib/actions/mock-auth';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showEmail, setShowEmail] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
 
   async function signInWithGoogle() {
     setLoading(true);
@@ -22,23 +20,6 @@ export default function LoginPage() {
       options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
     });
     if (error) { setError(error.message); setLoading(false); }
-  }
-
-  async function signInWithEmail(e: React.FormEvent) {
-    e.preventDefault();
-    setLoading(true);
-    setError(null);
-    const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) { setError(error.message); setLoading(false); return; }
-    const next = new URLSearchParams(window.location.search).get('next') ?? '/dashboard';
-    window.location.href = next;
-  }
-
-  function quickLogin(email: string) {
-    setEmail(email);
-    setPassword('Test1234!');
-    setShowEmail(true);
   }
 
   return (
@@ -53,51 +34,16 @@ export default function LoginPage() {
           {loading ? he.auth.signingIn : he.auth.google}
         </Button>
 
-        {/* Divider */}
-        <div className="flex items-center gap-2 my-5">
-          <div className="flex-1 h-px bg-ink-200" />
-          <span className="text-xs text-ink-400">או</span>
-          <div className="flex-1 h-px bg-ink-200" />
-        </div>
-
-        {!showEmail ? (
-          <button onClick={() => setShowEmail(true)} className="text-sm text-pitch-700 hover:underline">
-            התחברות עם אימייל וסיסמה
-          </button>
-        ) : (
-          <form onSubmit={signInWithEmail} className="space-y-3 text-start">
-            <div>
-              <label className="block text-xs font-medium text-ink-600 mb-1">אימייל</label>
-              <input type="email" required value={email} onChange={e => setEmail(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl ring-1 ring-ink-200 focus:ring-pitch-500 focus:outline-none text-sm" />
-            </div>
-            <div>
-              <label className="block text-xs font-medium text-ink-600 mb-1">סיסמה</label>
-              <input type="password" required value={password} onChange={e => setPassword(e.target.value)}
-                className="w-full h-10 px-3 rounded-xl ring-1 ring-ink-200 focus:ring-pitch-500 focus:outline-none text-sm" />
-            </div>
-            <Button type="submit" fullWidth loading={loading}>התחברות</Button>
-          </form>
-        )}
-
         {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
-        {/* Mock-user quick-login chips (dev convenience) */}
+        {/* One-click mock-user login (dev/testing convenience) */}
         <div className="mt-6 pt-5 border-t border-ink-100">
-          <p className="text-xs text-ink-500 mb-2">משתמשי בדיקה (סיסמה: Test1234!)</p>
+          <p className="text-xs text-ink-500 mb-3">כניסה מהירה לבדיקה</p>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => quickLogin('admin@test.com')} className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50">
-              👑 אדמין
-            </button>
-            <button onClick={() => quickLogin('manager@test.com')} className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50">
-              🎽 מנהל קבוצה
-            </button>
-            <button onClick={() => quickLogin('organiser@test.com')} className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50">
-              🏆 מארגן תחרות
-            </button>
-            <button onClick={() => quickLogin('viewer@test.com')} className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50">
-              👀 צופה רגיל
-            </button>
+            <MockButton role="admin"     emoji="👑" label="אדמין" />
+            <MockButton role="manager"   emoji="🎽" label="מנהל קבוצה" />
+            <MockButton role="organiser" emoji="🏆" label="מארגן תחרות" />
+            <MockButton role="viewer"    emoji="👀" label="צופה רגיל" />
           </div>
         </div>
 
@@ -106,6 +52,20 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+function MockButton({ role, emoji, label }: { role: string; emoji: string; label: string }) {
+  return (
+    <form action={loginAsMock}>
+      <input type="hidden" name="role" value={role} />
+      <button
+        type="submit"
+        className="w-full rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors"
+      >
+        {emoji} {label}
+      </button>
+    </form>
   );
 }
 
