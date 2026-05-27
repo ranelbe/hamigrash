@@ -51,12 +51,16 @@ export default async function PublicPlayerPage({ params }: { params: { id: strin
                 <Link href={`/t/${player.team.slug}`} className="text-pitch-700 dark:text-pitch-400 hover:underline font-medium">{player.team.name}</Link>
               </p>
             )}
-            {(player as any).training_group?.name && (
-              <p>
-                <span>קבוצת אימון: </span>
-                <span className="font-medium text-ink-900 dark:text-ink-100">{(player as any).training_group.name}</span>
-              </p>
-            )}
+            {(() => {
+              const tg: any = (player as any).training_group;
+              const obj = Array.isArray(tg) ? tg[0] : tg;
+              return obj?.name ? (
+                <p>
+                  <span>קבוצת אימון: </span>
+                  <span className="font-medium text-ink-900 dark:text-ink-100">{obj.name}</span>
+                </p>
+              ) : null;
+            })()}
           </div>
         </section>
       </main>

@@ -48,7 +48,11 @@ export default async function PlayerDetail({ params }: { params: { id: string } 
             <div className="flex items-center gap-2 text-sm">
               <CalendarDays className="size-4 text-ink-500" />
               <span className="text-ink-500">קבוצת אימון:</span>
-              <span className="font-medium text-ink-900">{(player as any).training_group?.name ?? '—'}</span>
+              <span className="font-medium text-ink-900">{(() => {
+                const tg: any = (player as any).training_group;
+                const obj = Array.isArray(tg) ? tg[0] : tg;
+                return obj?.name ?? '—';
+              })()}</span>
             </div>
           </CardBody>
         </Card>

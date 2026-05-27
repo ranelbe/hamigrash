@@ -51,12 +51,15 @@ export default async function PlayersPage({ searchParams }: { searchParams: { te
                   <Link href={`/players/${p.id}`} className="font-medium hover:underline text-ink-900 dark:text-ink-100 truncate block">{p.display_name}</Link>
                   <div className="text-xs text-ink-500 dark:text-ink-400 flex items-center gap-2 truncate">
                     <span>{p.team?.name}</span>
-                    {p.training_group?.name && (
-                      <>
-                        <span className="text-ink-300">·</span>
-                        <span className="inline-flex items-center gap-1">📅 {p.training_group.name}</span>
-                      </>
-                    )}
+                    {(() => {
+                      const tg = Array.isArray(p.training_group) ? p.training_group[0] : p.training_group;
+                      return tg?.name ? (
+                        <>
+                          <span className="text-ink-300">·</span>
+                          <span className="inline-flex items-center gap-1">📅 {tg.name}</span>
+                        </>
+                      ) : null;
+                    })()}
                   </div>
                 </div>
                 <Badge tone="neutral">{he.player.positions[p.position]}</Badge>

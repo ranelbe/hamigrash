@@ -1,6 +1,7 @@
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { getIsAppAdmin } from '@/lib/auth/app-admin';
 import { BalancerWorkspace } from '@/components/balancer/workspace';
+import type { BalancerPlayer } from '@/lib/algorithms/balancer';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,5 +16,11 @@ export default async function BalancerPage() {
     .eq('is_active', true)
     .order('display_name');
 
-  return <BalancerWorkspace players={players ?? []} isAdmin={isAdmin} />;
+  // Supabase typings widen to-one joins as arrays — flatten back to a single object.
+  const normalized: BalancerPlayer[] = ((players ?? []) as any[]).map(p => ({
+    ...p,
+    training_group: Array.isArray(p.training_group) ? (p.training_group[0] ?? null) : p.training_group ?? null,
+  }));
+
+  return <BalancerWorkspace players={normalized} isAdmin={isAdmin} />;
 }
