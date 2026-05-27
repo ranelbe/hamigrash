@@ -96,7 +96,7 @@ export function AddressAutocomplete({
         />
       </div>
       {open && !disabled && results.length > 0 && (
-        <ul className="absolute z-30 top-full mt-1 inset-x-0 max-h-64 overflow-auto rounded-xl bg-white ring-1 ring-ink-200 shadow-cardLg py-1">
+        <ul className="absolute z-30 top-full mt-1 inset-x-0 max-h-80 overflow-auto rounded-xl bg-white ring-1 ring-ink-200 shadow-cardLg py-1">
           {results.map(r => (
             <li key={r}>
               <button

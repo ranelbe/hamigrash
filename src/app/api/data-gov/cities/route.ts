@@ -2,16 +2,17 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { DG_CITIES_RESOURCE, DG_CITIES_FIELD_NAME, cleanName, dgQuery } from '@/lib/data-gov';
 
 // GET /api/data-gov/cities[?q=…]
-//   q omitted → first 30 cities alphabetically (so the dropdown isn't empty
-//                on focus before any typing).
-//   q present → CKAN full-text search; up to 20 matches.
+//   Returns ALL Israeli settlements (~1,306) alphabetically.
+//   If `q` is provided, narrows via CKAN full-text search.
+//   Response is cached server-side for 24h (see dgQuery), so the
+//   ~120 KB payload is built once per day per query.
 export async function GET(req: NextRequest) {
   const q = req.nextUrl.searchParams.get('q')?.trim() ?? '';
 
   try {
     const params: Record<string, string> = {
       resource_id: DG_CITIES_RESOURCE,
-      limit: q ? '20' : '30',
+      limit: '2000', // dataset is ~1,306 rows — fits in one page
     };
     if (q) params.q = q;
     const json = await dgQuery(params);
