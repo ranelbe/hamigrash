@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { canInvite } from '@/lib/auth/capabilities';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/card';
@@ -12,6 +13,8 @@ export const dynamic = 'force-dynamic';
 export default async function InvitationsPage({ searchParams }: { searchParams: { team?: string; competition?: string } }) {
   const supabase = getSupabaseServerClient();
   const canInviteAnyone = await canInvite();
+  // Hide the whole screen from users who can't invite (defence-in-depth — UI also hides the link).
+  if (!canInviteAnyone) redirect('/dashboard');
   const { data: { user } } = await supabase.auth.getUser();
 
   const [{ data: myTeams }, { data: myComps }, { data: invitations }] = await Promise.all([
