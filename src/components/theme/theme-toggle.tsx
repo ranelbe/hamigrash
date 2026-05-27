@@ -1,53 +1,42 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Sun, Moon } from 'lucide-react';
 
 const STORAGE_KEY = 'hamigrash:theme';
 
 /**
- * Light/dark toggle. State lives on <html class="dark">, persisted to
- * localStorage. The init script in app/layout.tsx applies the saved
- * preference before first paint, so this component's only job is to
- * mutate it on click and stay in sync.
+ * Light/dark toggle.
+ *
+ * State lives on <html class="dark"> + localStorage. The init script in
+ * app/layout.tsx applies the saved preference before first paint so
+ * there is no flash.
+ *
+ * Rendering trick to avoid SSR/CSR hydration mismatch:
+ *   • Both icons are always rendered in the DOM.
+ *   • `dark:hidden` / `hidden dark:block` use Tailwind's `darkMode: 'class'`
+ *     so only the icon matching the current <html.dark> state is visible.
+ *   • Therefore the server and the client render the exact same HTML,
+ *     and the user sees the correct icon immediately after the init
+ *     script runs — no JS needed for the initial paint.
  */
 export function ThemeToggle() {
-  // We can't read <html class> on the server (always undefined there)
-  // — keep `mounted` so we don't render until we know the real state.
-  const [isDark, setIsDark] = useState(false);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setIsDark(document.documentElement.classList.contains('dark'));
-    setMounted(true);
-  }, []);
-
   function toggle() {
-    const next = !isDark;
-    setIsDark(next);
-    if (next) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem(STORAGE_KEY, 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem(STORAGE_KEY, 'light');
-    }
-  }
-
-  // SSR-safe placeholder so layout doesn't shift after hydration.
-  if (!mounted) {
-    return <div className="size-10 rounded-xl" aria-hidden />;
+    const root = document.documentElement;
+    const goingDark = !root.classList.contains('dark');
+    root.classList.toggle('dark', goingDark);
+    try { localStorage.setItem(STORAGE_KEY, goingDark ? 'dark' : 'light'); } catch {}
   }
 
   return (
     <button
       type="button"
       onClick={toggle}
-      aria-label={isDark ? 'מעבר למצב יום' : 'מעבר למצב לילה'}
-      title={isDark ? 'מצב יום' : 'מצב לילה'}
+      aria-label="החלפת מצב יום/לילה"
+      title="החלפת מצב יום/לילה"
       className="size-10 rounded-xl grid place-items-center text-ink-700 hover:bg-ink-100 dark:text-ink-200 dark:hover:bg-ink-800 transition-colors"
     >
-      {isDark ? <Sun className="size-5" /> : <Moon className="size-5" />}
+      <Moon className="size-5 dark:hidden" aria-hidden />
+      <Sun  className="size-5 hidden dark:block" aria-hidden />
     </button>
   );
 }
