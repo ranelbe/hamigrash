@@ -154,9 +154,8 @@ export function PlayerEditForm({ player, trainingGroups }: { player: Player; tra
                   clear('address_city');
                   clear('address_street');
                 }}
-                // q='' is allowed — backend returns first 30 cities so the
-                // dropdown isn't empty when the user just focuses the field.
-                fetchUrl={q => `/api/data-gov/cities${q ? `?q=${encodeURIComponent(q)}` : ''}`}
+                fetchUrl={() => '/api/data-gov/cities'}
+                cacheKey="cities"
                 error={errors.address_city}
               />
               <AddressAutocomplete
@@ -164,9 +163,10 @@ export function PlayerEditForm({ player, trainingGroups }: { player: Player; tra
                 placeholder={f.address_city ? 'לחץ ובחר רחוב' : 'יש לבחור עיר תחילה'}
                 value={f.address_street}
                 onChange={v => set('address_street', v)}
-                fetchUrl={q => f.address_city
-                  ? `/api/data-gov/streets?city=${encodeURIComponent(f.address_city)}${q ? `&q=${encodeURIComponent(q)}` : ''}`
+                fetchUrl={() => f.address_city
+                  ? `/api/data-gov/streets?city=${encodeURIComponent(f.address_city)}`
                   : null}
+                cacheKey={f.address_city || ''}
                 disabled={!f.address_city}
                 error={errors.address_street}
               />

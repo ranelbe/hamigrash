@@ -20,7 +20,9 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(function Inp
           error && 'border-red-500 focus:border-red-500 focus:ring-red-500/20',
           className,
         )}
-        dir="auto"
+        // Inherit RTL from <html dir="rtl"> so Hebrew placeholders align
+        // right too. Use dir="ltr" explicitly on per-input basis (e.g. URLs,
+        // emails) by passing dir via {...rest}.
         {...rest}
       />
       {hint && !error && <p className="mt-1 text-xs text-ink-400">{hint}</p>}
