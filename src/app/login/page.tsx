@@ -4,7 +4,14 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { he } from '@/lib/i18n/he';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
-import { loginAsMock } from '@/lib/actions/mock-auth';
+
+const MOCK_EMAILS: Record<string, string> = {
+  admin: 'admin@test.com',
+  manager: 'manager@test.com',
+  organiser: 'organiser@test.com',
+  viewer: 'viewer@test.com',
+};
+const MOCK_PASSWORD = 'Test1234!';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -22,6 +29,25 @@ export default function LoginPage() {
     if (error) { setError(error.message); setLoading(false); }
   }
 
+  async function loginAsMock(role: string) {
+    setLoading(true);
+    setError(null);
+    const email = MOCK_EMAILS[role];
+    if (!email) { setError('משתמש מוק לא תקין'); setLoading(false); return; }
+
+    const supabase = getSupabaseBrowserClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email,
+      password: MOCK_PASSWORD,
+    });
+    if (error) {
+      setError(`שגיאה: ${error.message}`);
+      setLoading(false);
+      return;
+    }
+    window.location.href = '/dashboard';
+  }
+
   return (
     <div className="min-h-screen grid place-items-center px-6 bg-gradient-to-b from-white to-pitch-50">
       <div className="w-full max-w-md rounded-xl2 bg-white p-8 shadow-cardLg border border-ink-100 text-center">
@@ -34,16 +60,32 @@ export default function LoginPage() {
           {loading ? he.auth.signingIn : he.auth.google}
         </Button>
 
-        {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+        {error && (
+          <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 text-start">
+            {error}
+          </div>
+        )}
 
         {/* One-click mock-user login (dev/testing convenience) */}
         <div className="mt-6 pt-5 border-t border-ink-100">
           <p className="text-xs text-ink-500 mb-3">כניסה מהירה לבדיקה</p>
           <div className="grid grid-cols-2 gap-2">
-            <MockButton role="admin"     emoji="👑" label="אדמין" />
-            <MockButton role="manager"   emoji="🎽" label="מנהל קבוצה" />
-            <MockButton role="organiser" emoji="🏆" label="מארגן תחרות" />
-            <MockButton role="viewer"    emoji="👀" label="צופה רגיל" />
+            <button onClick={() => loginAsMock('admin')} disabled={loading}
+              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
+              👑 אדמין
+            </button>
+            <button onClick={() => loginAsMock('manager')} disabled={loading}
+              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
+              🎽 מנהל קבוצה
+            </button>
+            <button onClick={() => loginAsMock('organiser')} disabled={loading}
+              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
+              🏆 מארגן תחרות
+            </button>
+            <button onClick={() => loginAsMock('viewer')} disabled={loading}
+              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
+              👀 צופה רגיל
+            </button>
           </div>
         </div>
 
@@ -52,20 +94,6 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
-  );
-}
-
-function MockButton({ role, emoji, label }: { role: string; emoji: string; label: string }) {
-  return (
-    <form action={loginAsMock}>
-      <input type="hidden" name="role" value={role} />
-      <button
-        type="submit"
-        className="w-full rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors"
-      >
-        {emoji} {label}
-      </button>
-    </form>
   );
 }
 
