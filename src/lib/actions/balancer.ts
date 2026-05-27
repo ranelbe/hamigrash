@@ -48,13 +48,17 @@ export async function createTeamsFromBalancer(
 
   const supabase = getSupabaseServerClient();
 
-  // Build unique slug bases so concurrent runs do not collide.
+  // Build unique slugs so balancer runs never collide. The team NAME is a
+  // display field and can repeat freely ('קבוצה א' is fine across leagues),
+  // but `slug` is the unique URL identifier — we always append a
+  // base-36 timestamp + position index to guarantee uniqueness.
   const ts = Date.now().toString(36);
   const teamRows = sides.map((s, i) => {
     const colors = TEAM_COLORS[i % TEAM_COLORS.length];
+    const slugBase = slugify(s.name).slice(0, 35) || 'team';
     return {
       name: s.name || `קבוצה ${String.fromCharCode(1488 + i)}`,
-      slug: (slugify(s.name) || `team-${ts}-${i}`).slice(0, 50),
+      slug: `${slugBase}-${ts}${i}`.slice(0, 50),
       short_name: (s.name || `ק${i + 1}`).slice(0, 3),
       primary_color: colors.primary,
       secondary_color: colors.secondary,
@@ -88,8 +92,11 @@ export async function createTeamsFromBalancer(
   // Optional: create a competition + enroll all teams + (optionally) generate fixtures.
   let competitionId: string | null = null;
   if (opts.competition) {
-    const ts = Date.now().toString(36);
-    const compSlug = (slugify(opts.competition.name) || `comp-${ts}`).slice(0, 50);
+    // Same story for the competition slug — must be globally unique even if
+    // the name repeats ('ליגה דצמבר 2026' shouldn't blow up the second time).
+    const compTs = Date.now().toString(36);
+    const compSlugBase = slugify(opts.competition.name).slice(0, 40) || 'comp';
+    const compSlug = `${compSlugBase}-${compTs}`.slice(0, 50);
     const compType = opts.competition.type ?? 'league';
 
     const startDate = opts.competition.startsOn ? new Date(opts.competition.startsOn) : new Date();
