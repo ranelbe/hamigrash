@@ -7,11 +7,15 @@
 
 export const DG_BASE = 'https://data.gov.il/api/3/action/datastore_search';
 
-// "ישובים" — official list of Israeli localities.
+// Resource IDs verified directly with the user — DO NOT change without
+// confirming both still return success via:
+//   https://data.gov.il/api/3/action/datastore_search?resource_id=<id>
+
+// "רשימת יישובים בישראל" — ~1,306 settlements.
 export const DG_CITIES_RESOURCE   = '5c78e9fa-c2e2-4771-93ff-7f400a12f7ba';
 export const DG_CITIES_FIELD_NAME = 'שם_ישוב';
 
-// "רחובות" — official list of streets per locality.
+// "רשימת רחובות בישראל" — ~63,563 streets. Hebrew field names.
 export const DG_STREETS_RESOURCE     = '9ad3862c-8391-4b2f-84a4-2d4c68625f4b';
 export const DG_STREETS_CITY_FIELD   = 'שם_ישוב';
 export const DG_STREETS_NAME_FIELD   = 'שם_רחוב';

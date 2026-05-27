@@ -147,23 +147,25 @@ export function PlayerEditForm({ player, trainingGroups }: { player: Player; tra
             <div className="grid sm:grid-cols-2 gap-3">
               <AddressAutocomplete
                 label="עיר"
-                placeholder="לדוגמה: תל אביב יפו"
+                placeholder="לחץ ובחר עיר"
                 value={f.address_city}
                 onChange={v => {
                   setF(s => ({ ...s, address_city: v, address_street: '' }));
                   clear('address_city');
                   clear('address_street');
                 }}
-                fetchUrl={q => q.length >= 1 ? `/api/data-gov/cities?q=${encodeURIComponent(q)}` : null}
+                // q='' is allowed — backend returns first 30 cities so the
+                // dropdown isn't empty when the user just focuses the field.
+                fetchUrl={q => `/api/data-gov/cities${q ? `?q=${encodeURIComponent(q)}` : ''}`}
                 error={errors.address_city}
               />
               <AddressAutocomplete
                 label="רחוב"
-                placeholder={f.address_city ? 'התחל להקליד שם רחוב' : 'יש לבחור עיר תחילה'}
+                placeholder={f.address_city ? 'לחץ ובחר רחוב' : 'יש לבחור עיר תחילה'}
                 value={f.address_street}
                 onChange={v => set('address_street', v)}
                 fetchUrl={q => f.address_city
-                  ? `/api/data-gov/streets?city=${encodeURIComponent(f.address_city)}&q=${encodeURIComponent(q)}`
+                  ? `/api/data-gov/streets?city=${encodeURIComponent(f.address_city)}${q ? `&q=${encodeURIComponent(q)}` : ''}`
                   : null}
                 disabled={!f.address_city}
                 error={errors.address_street}
