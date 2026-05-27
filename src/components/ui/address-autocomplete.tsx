@@ -102,15 +102,15 @@ export function AddressAutocomplete({
         />
         <ChevronDown
           aria-hidden
-          className={`pointer-events-none absolute left-3 top-[2.35rem] size-4 text-ink-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          className={`pointer-events-none absolute left-3 top-[2.35rem] size-4 text-ink-400 dark:text-ink-500 transition-transform ${open ? 'rotate-180' : ''}`}
         />
       </div>
       {open && !disabled && (
-        <div className="absolute z-30 top-full mt-1 inset-x-0 rounded-xl bg-white ring-1 ring-ink-200 shadow-cardLg max-h-80 overflow-auto">
+        <div className="absolute z-30 top-full mt-1 inset-x-0 rounded-xl bg-white dark:bg-ink-800 ring-1 ring-ink-200 dark:ring-ink-700 shadow-cardLg max-h-80 overflow-auto">
           {loading && !hasFetched ? (
-            <div className="p-3 text-xs text-ink-500">טוען...</div>
+            <div className="p-3 text-xs text-ink-500 dark:text-ink-400">טוען...</div>
           ) : visible.length === 0 ? (
-            <div className="p-3 text-xs text-ink-500">
+            <div className="p-3 text-xs text-ink-500 dark:text-ink-400">
               {hasFetched ? 'לא נמצאו התאמות — אפשר להזין ידנית' : 'אין נתונים'}
             </div>
           ) : (
@@ -120,7 +120,7 @@ export function AddressAutocomplete({
                   <button
                     type="button"
                     onMouseDown={e => { e.preventDefault(); onChange(r); setOpen(false); }}
-                    className={`block w-full text-start px-3 py-1.5 text-sm hover:bg-pitch-50 hover:text-pitch-900 ${r === value ? 'bg-pitch-50 text-pitch-900 font-medium' : ''}`}
+                    className={`block w-full text-start px-3 py-1.5 text-sm text-ink-800 dark:text-ink-100 hover:bg-pitch-50 hover:text-pitch-900 dark:hover:bg-pitch-950 dark:hover:text-pitch-200 ${r === value ? 'bg-pitch-50 text-pitch-900 dark:bg-pitch-950 dark:text-pitch-200 font-medium' : ''}`}
                   >
                     {r}
                   </button>

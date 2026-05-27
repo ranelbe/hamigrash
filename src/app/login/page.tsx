@@ -60,11 +60,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-6 bg-gradient-to-b from-white to-pitch-50">
-      <div className="w-full max-w-md rounded-xl2 bg-white p-8 shadow-cardLg border border-ink-100 text-center">
+    <div className="min-h-screen grid place-items-center px-6 bg-gradient-to-b from-white to-pitch-50 dark:from-[#0b1220] dark:to-ink-900">
+      <div className="w-full max-w-md rounded-xl2 bg-white dark:bg-ink-900 p-8 shadow-cardLg border border-ink-100 dark:border-ink-800 text-center">
         <div className="mx-auto size-12 rounded-2xl bg-pitch-600 text-white text-2xl grid place-items-center mb-4">⚽</div>
-        <h1 className="font-display text-2xl font-bold text-ink-900">{he.auth.welcome}</h1>
-        <p className="mt-2 text-sm text-ink-600">התחברות באמצעות Google — בלי סיסמאות.</p>
+        <h1 className="font-display text-2xl font-bold text-ink-900 dark:text-ink-50">{he.auth.welcome}</h1>
+        <p className="mt-2 text-sm text-ink-600 dark:text-ink-300">התחברות באמצעות Google — בלי סיסמאות.</p>
 
         <Button onClick={signInWithGoogle} fullWidth size="lg" loading={loading} className="mt-6">
           <GoogleIcon />
@@ -72,35 +72,28 @@ export default function LoginPage() {
         </Button>
 
         {error && (
-          <div className="mt-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700 text-start">
+          <div className="mt-4 p-3 rounded-lg bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-sm text-red-700 dark:text-red-200 text-start">
             {error}
           </div>
         )}
 
         {/* One-click mock-user login (dev/testing convenience) */}
-        <div className="mt-6 pt-5 border-t border-ink-100">
-          <p className="text-xs text-ink-500 mb-3">כניסה מהירה לבדיקה</p>
+        <div className="mt-6 pt-5 border-t border-ink-100 dark:border-ink-800">
+          <p className="text-xs text-ink-500 dark:text-ink-400 mb-3">כניסה מהירה לבדיקה</p>
           <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => loginAsMock('admin')} disabled={loading}
-              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
-              👑 אדמין
-            </button>
-            <button onClick={() => loginAsMock('manager')} disabled={loading}
-              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
-              🎽 מנהל קבוצה
-            </button>
-            <button onClick={() => loginAsMock('organiser')} disabled={loading}
-              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
-              🏆 מארגן תחרות
-            </button>
-            <button onClick={() => loginAsMock('viewer')} disabled={loading}
-              className="rounded-lg ring-1 ring-ink-200 px-3 py-2 text-xs hover:bg-ink-50 hover:ring-pitch-300 transition-colors disabled:opacity-50">
-              👀 צופה רגיל
-            </button>
+            {(['admin','manager','organiser','viewer'] as const).map((role) => {
+              const label = { admin: '👑 אדמין', manager: '🎽 מנהל קבוצה', organiser: '🏆 מארגן תחרות', viewer: '👀 צופה רגיל' }[role];
+              return (
+                <button key={role} onClick={() => loginAsMock(role)} disabled={loading}
+                  className="rounded-lg ring-1 ring-ink-200 dark:ring-ink-700 text-ink-800 dark:text-ink-200 px-3 py-2 text-xs hover:bg-ink-50 dark:hover:bg-ink-800 hover:ring-pitch-300 dark:hover:ring-pitch-600 transition-colors disabled:opacity-50">
+                  {label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        <p className="mt-6 text-xs text-ink-400">
+        <p className="mt-6 text-xs text-ink-400 dark:text-ink-500">
           ההתחברות אינה מקנה הרשאות. גישה מוקנית באמצעות הזמנות בלבד.
         </p>
       </div>

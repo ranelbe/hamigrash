@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { he } from '@/lib/i18n/he';
 import { cn } from '@/lib/utils';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 const NAV = [
   { href: '/dashboard',    label: 'ראשי',      icon: LayoutDashboard },
@@ -65,6 +66,7 @@ export function AppShell({ children, user, isAdmin = false }: {
 
           {/* Right cluster */}
           <div className="flex items-center gap-2 ms-auto md:ms-0">
+            <ThemeToggle />
             {user ? (
               <div className="relative">
                 <button onClick={() => setUserMenu(v => !v)} className="h-10 px-2 rounded-xl inline-flex items-center gap-2 hover:bg-ink-100 dark:hover:bg-ink-800">

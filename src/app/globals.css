@@ -2,18 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Light + dark palette tokens driven by the `dark` class on <html>.
+   The inline init script in app/layout.tsx applies the saved
+   preference before first paint, so these CSS vars match what the
+   user actually picked (no flash). */
 :root {
-  --bg: #f8fafc;
-  --fg: #0f172a;
+  --bg: #f8fafc;        /* ink-50 */
+  --fg: #0f172a;        /* ink-900 */
   color-scheme: light;
+}
+html.dark {
+  --bg: #0b1220;        /* deeper than ink-900 so cards (ink-900) pop */
+  --fg: #f8fafc;        /* ink-50 */
+  color-scheme: dark;
 }
 
 html, body { background: var(--bg); color: var(--fg); }
 body { font-feature-settings: "kern", "liga", "calt"; }
-
-/* Make sure any leftover `dark:` classes from earlier dev never trigger,
-   in case a stray bit of code adds `dark` to <html>. */
-html.dark { color-scheme: light !important; }
 
 /* RTL-aware focus ring */
 :focus-visible {

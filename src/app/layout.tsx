@@ -20,12 +20,25 @@ export const viewport: Viewport = {
   maximumScale: 1,
 };
 
+// Applies the chosen theme to <html> BEFORE first paint to avoid the
+// classic "flash of light theme then dark" on full reloads.
+//   1. saved preference wins → 'dark' | 'light'
+//   2. otherwise follow the OS's prefers-color-scheme
+const themeInitScript = `
+(function() {
+  try {
+    var saved = localStorage.getItem('hamigrash:theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var useDark = saved ? (saved === 'dark') : prefersDark;
+    if (useDark) document.documentElement.classList.add('dark');
+  } catch (e) { /* no localStorage in some browsing modes — fine */ }
+})();`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} ${rubik.variable}`}>
       <head>
-        {/* Make sure dark mode is never active even if the class was set by an earlier dev build. */}
-        <script dangerouslySetInnerHTML={{ __html: `try{document.documentElement.classList.remove('dark');localStorage.removeItem('hamigrash:theme');}catch(e){}` }} />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-screen antialiased">
         <Providers>{children}</Providers>
