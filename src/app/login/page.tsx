@@ -36,10 +36,21 @@ export default function LoginPage() {
     if (!email) { setError('משתמש מוק לא תקין'); setLoading(false); return; }
 
     const supabase = getSupabaseBrowserClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password: MOCK_PASSWORD,
-    });
+    let { error } = await supabase.auth.signInWithPassword({ email, password: MOCK_PASSWORD });
+
+    // First-time / corrupted state — seed (or re-seed) the mock users via
+    // the admin API, then retry once. Self-healing setup.
+    if (error) {
+      const setup = await fetch('/api/dev/seed-mock-users', { method: 'POST' });
+      if (!setup.ok) {
+        const body = await setup.json().catch(() => ({}));
+        setError(`הקמת משתמשי בדיקה נכשלה: ${body.error ?? setup.statusText}`);
+        setLoading(false);
+        return;
+      }
+      ({ error } = await supabase.auth.signInWithPassword({ email, password: MOCK_PASSWORD }));
+    }
+
     if (error) {
       setError(`שגיאה: ${error.message}`);
       setLoading(false);
