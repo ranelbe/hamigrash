@@ -26,6 +26,48 @@ export default async function DashboardPage() {
   const myCompetitions = (myCompMemberships ?? []).map((m: any) => m.competition).filter(Boolean);
   const hasAnyManagement = isAdmin || myTeams.length > 0 || myCompetitions.length > 0;
 
+  // Map each of MY teams → competitions it's enrolled in, so we can
+  // group the team cards under the competition they actually play in
+  // (a manager of 20 teams shouldn't see a flat wall of crests).
+  const myTeamIdList = myTeams.map((t: any) => t.id);
+  const { data: compTeamsRaw } = myTeamIdList.length > 0
+    ? await supabase.from('competition_teams')
+        .select('team_id, competition:competitions(id, name, type, status, season)')
+        .in('team_id', myTeamIdList)
+    : { data: [] as any[] };
+  const compsByTeam = new Map<string, any[]>();
+  for (const row of (compTeamsRaw ?? []) as any[]) {
+    const comp = Array.isArray(row.competition) ? row.competition[0] : row.competition;
+    if (!comp) continue;
+    const arr = compsByTeam.get(row.team_id) ?? [];
+    arr.push(comp);
+    compsByTeam.set(row.team_id, arr);
+  }
+  // competitionId → { competition, teams[] } ; '' for friendlies / unenrolled
+  type TeamGroup = { competition: any | null; teams: any[] };
+  const teamGroups = new Map<string, TeamGroup>();
+  const NO_COMP_KEY = '__none__';
+  for (const t of myTeams as any[]) {
+    const comps = compsByTeam.get(t.id) ?? [];
+    if (comps.length === 0) {
+      const g = teamGroups.get(NO_COMP_KEY) ?? { competition: null, teams: [] };
+      g.teams.push(t);
+      teamGroups.set(NO_COMP_KEY, g);
+    } else {
+      for (const c of comps) {
+        const g = teamGroups.get(c.id) ?? { competition: c, teams: [] };
+        g.teams.push(t);
+        teamGroups.set(c.id, g);
+      }
+    }
+  }
+  // Real competitions first (newest season desc), unenrolled last.
+  const sortedTeamGroups = Array.from(teamGroups.values()).sort((a, b) => {
+    if (!a.competition) return 1;
+    if (!b.competition) return -1;
+    return (b.competition.season ?? '').localeCompare(a.competition.season ?? '');
+  });
+
   const [activeComps, upcoming, recentResults] = await Promise.all([
     supabase.from('competitions').select('id, slug, name, type, status, season, format').in('status', ['active', 'draft']).order('created_at', { ascending: false }).limit(6),
     supabase.from('matches')
@@ -73,38 +115,58 @@ export default async function DashboardPage() {
             <h2 className="font-display text-lg font-semibold text-ink-900 dark:text-ink-50">בניהול שלי</h2>
           </div>
 
-          {/* Teams I manage */}
+          {/* Teams I manage — grouped by competition */}
           {myTeams.length > 0 && (
-            <div className="mb-5">
-              <div className="text-xs font-medium text-ink-500 dark:text-ink-400 uppercase tracking-wide mb-2">קבוצות</div>
-              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {myTeams.map((t: any) => (
-                  <div key={t.id} className="relative group rounded-xl2 bg-white dark:bg-ink-800 border border-ink-100 dark:border-ink-700 hover:border-pitch-300 dark:hover:border-pitch-700 hover:shadow-card transition-all">
-                    {/* Whole-card link */}
-                    <Link href={`/teams/${t.id}`} className="absolute inset-0 rounded-xl2" aria-label={t.name} />
-
-                    <div className="p-5 flex items-center gap-3 relative pointer-events-none">
-                      <TeamBadge team={t} size="lg" />
-                      <div className="min-w-0 flex-1">
-                        <div className="font-display font-semibold text-ink-900 dark:text-ink-50 truncate group-hover:text-pitch-700 dark:group-hover:text-pitch-300 transition-colors">{t.name}</div>
-                        {t.home_venue && <div className="text-xs text-ink-500 dark:text-ink-400 truncate">{t.home_venue}</div>}
-                      </div>
-                    </div>
-
-                    {/* Quick action icons — sit above the wrap-link */}
-                    <div className="absolute top-3 end-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Link href={`/players?team=${t.id}`} title="הוספת שחקן" className="relative z-10 size-8 rounded-lg bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 grid place-items-center hover:bg-pitch-50 dark:hover:bg-pitch-950 hover:ring-pitch-300">
-                        <UserPlus className="size-4" />
-                      </Link>
-                      {isAdmin && (
-                        <Link href={`/invitations?team=${t.id}`} title="הזמנה" className="relative z-10 size-8 rounded-lg bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 grid place-items-center hover:bg-pitch-50 dark:hover:bg-pitch-950 hover:ring-pitch-300">
-                          <Mail className="size-4" />
+            <div className="mb-5 space-y-4">
+              <div className="text-xs font-medium text-ink-500 dark:text-ink-400 uppercase tracking-wide">קבוצות</div>
+              {sortedTeamGroups.map((g: any, gi: number) => (
+                <div key={g.competition?.id ?? `none-${gi}`} className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    {g.competition ? (
+                      <>
+                        <Trophy className="size-4 text-amber-500" />
+                        <Link href={`/competitions/${g.competition.id}`} className="font-medium text-ink-800 dark:text-ink-100 hover:text-pitch-700 dark:hover:text-pitch-400 hover:underline">
+                          {g.competition.name}
                         </Link>
-                      )}
-                    </div>
+                        <Badge tone={g.competition.status === 'active' ? 'success' : g.competition.status === 'finished' ? 'neutral' : 'warning'}>
+                          {g.competition.status === 'active' ? 'פעילה' : g.competition.status === 'finished' ? 'הסתיימה' : g.competition.status === 'draft' ? 'טיוטה' : g.competition.status}
+                        </Badge>
+                        <span className="text-xs text-ink-400 dark:text-ink-500">· {g.teams.length} קבוצות</span>
+                      </>
+                    ) : (
+                      <>
+                        <ShieldCheck className="size-4 text-ink-500" />
+                        <span className="font-medium text-ink-800 dark:text-ink-100">ללא תחרות</span>
+                        <span className="text-xs text-ink-400 dark:text-ink-500">· {g.teams.length} קבוצות</span>
+                      </>
+                    )}
                   </div>
-                ))}
-              </div>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {g.teams.map((t: any) => (
+                      <div key={t.id} className="relative group rounded-xl2 bg-white dark:bg-ink-800 border border-ink-100 dark:border-ink-700 hover:border-pitch-300 dark:hover:border-pitch-700 hover:shadow-card transition-all">
+                        <Link href={`/teams/${t.id}`} className="absolute inset-0 rounded-xl2" aria-label={t.name} />
+                        <div className="p-5 flex items-center gap-3 relative pointer-events-none">
+                          <TeamBadge team={t} size="lg" />
+                          <div className="min-w-0 flex-1">
+                            <div className="font-display font-semibold text-ink-900 dark:text-ink-50 truncate group-hover:text-pitch-700 dark:group-hover:text-pitch-300 transition-colors">{t.name}</div>
+                            {t.home_venue && <div className="text-xs text-ink-500 dark:text-ink-400 truncate">{t.home_venue}</div>}
+                          </div>
+                        </div>
+                        <div className="absolute top-3 end-3 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Link href={`/players?team=${t.id}`} title="הוספת שחקן" className="relative z-10 size-8 rounded-lg bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 grid place-items-center hover:bg-pitch-50 dark:hover:bg-pitch-950 hover:ring-pitch-300">
+                            <UserPlus className="size-4" />
+                          </Link>
+                          {isAdmin && (
+                            <Link href={`/invitations?team=${t.id}`} title="הזמנה" className="relative z-10 size-8 rounded-lg bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 grid place-items-center hover:bg-pitch-50 dark:hover:bg-pitch-950 hover:ring-pitch-300">
+                              <Mail className="size-4" />
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
