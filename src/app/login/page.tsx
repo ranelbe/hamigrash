@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { he } from '@/lib/i18n/he';
 import { getSupabaseBrowserClient } from '@/lib/supabase/client';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 const MOCK_EMAILS: Record<string, string> = {
   admin: 'admin@test.com',
@@ -60,7 +61,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen grid place-items-center px-6 bg-gradient-to-b from-white to-pitch-50 dark:from-[#0b1220] dark:to-ink-900">
+    <div className="relative min-h-screen grid place-items-center px-6 bg-gradient-to-b from-white to-pitch-50 dark:from-[#0b1220] dark:to-ink-900">
+      {/* Floating theme toggle so users can switch BEFORE logging in */}
+      <div className="absolute top-4 end-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md rounded-xl2 bg-white dark:bg-ink-900 p-8 shadow-cardLg border border-ink-100 dark:border-ink-800 text-center">
         <div className="mx-auto size-12 rounded-2xl bg-pitch-600 text-white text-2xl grid place-items-center mb-4">⚽</div>
         <h1 className="font-display text-2xl font-bold text-ink-900 dark:text-ink-50">{he.auth.welcome}</h1>

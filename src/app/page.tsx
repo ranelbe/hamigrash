@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { he } from '@/lib/i18n/he';
+import { ThemeToggle } from '@/components/theme/theme-toggle';
 
 export default function HomePage() {
   return (
@@ -9,9 +10,12 @@ export default function HomePage() {
           <span className="size-9 rounded-lg bg-pitch-600 text-white grid place-items-center">⚽</span>
           {he.app.name}
         </div>
-        <Link href="/login" className="rounded-xl bg-pitch-600 text-white px-4 h-10 inline-flex items-center font-medium hover:bg-pitch-700">
-          {he.nav.login}
-        </Link>
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <Link href="/login" className="rounded-xl bg-pitch-600 text-white px-4 h-10 inline-flex items-center font-medium hover:bg-pitch-700">
+            {he.nav.login}
+          </Link>
+        </div>
       </header>
 
       <section className="max-w-3xl mx-auto px-6 pt-16 pb-24 text-center">
