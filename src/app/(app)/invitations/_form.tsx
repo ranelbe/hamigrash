@@ -10,6 +10,7 @@ import { toast } from '@/lib/stores/toast';
 import { createInvitation } from '@/lib/actions/invitations';
 import { invitationCreateSchema } from '@/lib/schemas';
 import { useFormErrors } from '@/hooks/use-form-errors';
+import { InvitationShare } from '@/components/invitations/invitation-share';
 
 type Props = {
   teams: { id: string; name: string }[];
@@ -39,6 +40,9 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { errors, validate, clear } = useFormErrors();
+  // Just-created invitation — drives the share UI (link / WhatsApp / QR).
+  // Cleared when the user starts entering a new invitation.
+  const [shareInvite, setShareInvite] = useState<{ token: string; email: string | null; context: string } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -55,22 +59,41 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
     if (!parsed) { toast.error('יש לתקן את השדות המסומנים'); return; }
     setSubmitting(true);
     try {
-      await createInvitation(parsed as any);
-      toast.success('ההזמנה נשלחה');
+      const created = await createInvitation(parsed as any);
+      toast.success('ההזמנה נוצרה');
+      // Build a label so the share card knows what context this is.
+      const context = kind === 'team'
+        ? `מנהל קבוצה — ${teams.find(t => t.id === teamId)?.name ?? ''}`
+        : `מארגן תחרות — ${competitions.find(c => c.id === compId)?.name ?? ''}`;
+      setShareInvite({ token: (created as any).token, email: email || null, context });
       setEmail(''); setMessage('');
       router.refresh();
     } catch (e: any) {
-      toast.error(e.message ?? 'שליחה נכשלה');
+      toast.error(e.message ?? 'יצירה נכשלה');
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
+    <div className="space-y-4">
+      {/* Share card for the just-created invitation */}
+      {shareInvite && (
+        <InvitationShare
+          token={shareInvite.token}
+          email={shareInvite.email}
+          contextLabel={shareInvite.context}
+          onClose={() => setShareInvite(null)}
+        />
+      )}
+
     <Card>
       <CardHeader>
         <CardTitle>{he.invitation.invite}</CardTitle>
-        <p className="text-sm text-ink-500 dark:text-ink-400 mt-0.5">הזמנה רק לתפקידי ניהול. צופים יכולים להיכנס ללא הזמנה.</p>
+        <p className="text-sm text-ink-500 dark:text-ink-400 mt-0.5">
+          הזמנה רק לתפקידי ניהול. צופים יכולים להיכנס ללא הזמנה.
+          אחרי יצירה אפשר לשלוח בקישור, WhatsApp או QR.
+        </p>
       </CardHeader>
       <CardBody>
         <form className="grid sm:grid-cols-2 gap-4" onSubmit={submit} noValidate>
@@ -109,10 +132,13 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
           </div>
 
           <div className="sm:col-span-2">
-            <Button type="submit" loading={submitting} disabled={(kind === 'team' && !teamId) || (kind === 'competition' && !compId)}>{he.invitation.invite}</Button>
+            <Button type="submit" loading={submitting} disabled={(kind === 'team' && !teamId) || (kind === 'competition' && !compId)}>
+              {shareInvite ? 'יצירת הזמנה נוספת' : 'צור הזמנה'}
+            </Button>
           </div>
         </form>
       </CardBody>
     </Card>
+    </div>
   );
 }

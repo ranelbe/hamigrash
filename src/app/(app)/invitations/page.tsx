@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { he } from '@/lib/i18n/he';
 import { NewInvitationForm } from './_form';
 import { RevokeInvitationButton } from '@/components/invitations/revoke-button';
+import { ReshareButton } from '@/components/invitations/reshare-button';
 import { formatHebrewDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
@@ -20,7 +21,7 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
   const [{ data: allTeams }, { data: allComps }, { data: invitations }] = await Promise.all([
     supabase.from('teams').select('id, name').order('name'),
     supabase.from('competitions').select('id, name').order('created_at', { ascending: false }),
-    supabase.from('invitations').select('id, email, kind, status, team_role, competition_role, match_role, expires_at, created_at, team:teams(name), competition:competitions(name), match:matches(id)').order('created_at', { ascending: false }).limit(50),
+    supabase.from('invitations').select('id, email, token, kind, status, team_role, competition_role, match_role, expires_at, created_at, team:teams(name), competition:competitions(name), match:matches(id)').order('created_at', { ascending: false }).limit(50),
   ]);
 
   return (
@@ -51,7 +52,20 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
                     {he.invitation[i.status as keyof typeof he.invitation] as string}
                   </Badge>
                   <span className="text-xs text-ink-400 tabular">{formatHebrewDate(i.expires_at)}</span>
-                  {i.status === 'pending' && <RevokeInvitationButton id={i.id} />}
+                  {i.status === 'pending' && (
+                    <>
+                      <ReshareButton
+                        token={i.token}
+                        email={i.email}
+                        contextLabel={i.team?.name
+                          ? `מנהל קבוצה — ${i.team.name}`
+                          : i.competition?.name
+                            ? `מארגן תחרות — ${i.competition.name}`
+                            : ''}
+                      />
+                      <RevokeInvitationButton id={i.id} />
+                    </>
+                  )}
                 </li>
               ))}
             </ul>
