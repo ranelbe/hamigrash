@@ -29,7 +29,16 @@ export async function createInvitation(input: InvitationCreateInput) {
   const { data, error } = await supabase.from('invitations').insert(insertable).select('*').single();
   if (error) throw new Error(error.message);
 
-  await sendInvitationEmail(data);
+  // Email is best-effort: if Resend isn't configured, or the send fails
+  // for any reason, the invitation is still valid (the token is on the
+  // row) and the admin can deliver it via WhatsApp / QR / copy-link.
+  // Logging the error helps diagnose later without blocking the share UI.
+  try {
+    await sendInvitationEmail(data);
+  } catch (e) {
+    console.warn('[invitation] email send failed — invitation is still valid:', e);
+  }
+
   revalidatePath('/invitations');
   return data;
 }
