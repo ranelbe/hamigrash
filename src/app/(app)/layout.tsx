@@ -8,10 +8,16 @@ export default async function AuthedLayout({ children }: { children: React.React
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect('/login');
 
-  const [{ data: profile }, isAdmin] = await Promise.all([
-    supabase.from('profiles').select('email, full_name, avatar_url').eq('id', user.id).single(),
-    getIsAppAdmin(),
+  // .maybeSingle() instead of .single() — single() throws PGRST116 if the
+  // profile row hasn't been created yet (rare race after first Google
+  // login). maybeSingle() returns null instead and we fall back to
+  // user.email from the session.
+  const [profileRes, isAdmin] = await Promise.all([
+    supabase.from('profiles').select('email, full_name, avatar_url').eq('id', user.id).maybeSingle(),
+    getIsAppAdmin().catch(() => false), // never let auth admin lookup take down the layout
   ]);
+  const profile = profileRes.data;
+  if (profileRes.error) console.error('[layout] profile lookup error', profileRes.error);
 
   return (
     <AppShell
