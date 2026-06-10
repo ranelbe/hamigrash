@@ -48,7 +48,10 @@ export default async function DashboardPage() {
     supabase.from('matches')
       .select('id, scheduled_at, status, venue, round_label, home_team_id, away_team_id, competition_id, competition:competitions(id, name, type), home:teams!home_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color), away:teams!away_team_id(id, name, short_name, primary_color, crest_shape, crest_text_color)')
       .eq('status', 'scheduled')
-      .gte('scheduled_at', new Date().toISOString())
+      // No future-date filter: a match whose scheduled_at has passed but
+      // whose result wasn't entered yet (status still 'scheduled') needs
+      // to show up — otherwise the admin can't see what's pending. Sort
+      // ascending so the earliest pending matchday comes first.
       .order('scheduled_at', { ascending: true })
       .limit(6),
     supabase.from('matches')
