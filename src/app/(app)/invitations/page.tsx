@@ -21,7 +21,7 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
   const [{ data: allTeams }, { data: allComps }, { data: invitations, error: invErr }] = await Promise.all([
     supabase.from('teams').select('id, name').order('name'),
     supabase.from('competitions').select('id, name').order('created_at', { ascending: false }),
-    supabase.from('invitations').select('id, email, token, kind, status, team_role, competition_role, match_role, expires_at, created_at, team:teams(name), competition:competitions(name), match:matches(id)').order('created_at', { ascending: false }).limit(50),
+    supabase.from('invitations').select('id, email, token, kind, status, team_role, competition_role, match_role, expires_at, created_at, accepted_at, accepted_by, team:teams(name), competition:competitions(name), match:matches(id), accepter:profiles!accepted_by(email, full_name)').order('created_at', { ascending: false }).limit(50),
   ]);
   if (invErr) console.error('[invitations] list query error', invErr);
 
@@ -33,6 +33,7 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
     team:        Array.isArray(i.team)        ? (i.team[0]        ?? null) : (i.team        ?? null),
     competition: Array.isArray(i.competition) ? (i.competition[0] ?? null) : (i.competition ?? null),
     match:       Array.isArray(i.match)       ? (i.match[0]       ?? null) : (i.match       ?? null),
+    accepter:    Array.isArray(i.accepter)    ? (i.accepter[0]    ?? null) : (i.accepter    ?? null),
   }));
 
   return (
@@ -60,13 +61,29 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
                 return (
                 <li key={i.id} className="py-3 flex items-center gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">
-                      {i.email ?? <span className="text-ink-400 italic">קישור בלבד</span>}
+                    <div className="font-medium truncate flex items-center gap-2 flex-wrap">
+                      {/* If someone accepted, that's the meaningful identity
+                          to surface — fall back to the original email
+                          (which may be 'קישור בלבד' when blank). */}
+                      {i.accepter ? (
+                        <>
+                          <span>{i.accepter.full_name || i.accepter.email}</span>
+                          <span className="text-xs font-normal text-pitch-700 dark:text-pitch-400">קיבל ✓</span>
+                        </>
+                      ) : (
+                        i.email ?? <span className="text-ink-400 italic">קישור בלבד</span>
+                      )}
                     </div>
                     <div className="text-xs text-ink-500 dark:text-ink-400">
                       {entityLabel}
                       {' · '}
                       {roleLabel}
+                      {i.accepter && i.email && i.email !== i.accepter.email && (
+                        <>
+                          {' · '}
+                          <span className="text-ink-400">נשלחה ל-{i.email}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <Badge tone={i.status === 'accepted' ? 'success' : i.status === 'pending' ? 'warning' : 'neutral'}>
