@@ -24,8 +24,20 @@ export async function createMatch(input: MatchCreateInput) {
 export async function enterFinalScore(matchId: string, homeGoals: number, awayGoals: number) {
   const user = await requireCurrentUser();
   const supabase = getSupabaseServerClient();
-  const { data: m, error: me } = await supabase.from('matches').select('*').eq('id', matchId).single();
+  const { data: m, error: me } = await supabase
+    .from('matches')
+    .select('*, competition:competitions(type)')
+    .eq('id', matchId)
+    .single();
   if (me || !m) throw new Error(me?.message ?? 'match_not_found');
+
+  // Cup matches cannot end in a tie — there must be a winner so the
+  // bracket can advance. Block the save with a Hebrew message instead
+  // of letting the bad score land in the DB.
+  const comp: any = Array.isArray((m as any).competition) ? (m as any).competition[0] : (m as any).competition;
+  if (comp?.type === 'cup' && homeGoals === awayGoals) {
+    throw new Error('משחק גביע לא יכול להסתיים בתיקו — צריך מנצח (תוצאת פנדלים / הארכה).');
+  }
 
   const events = [
     ...Array.from({ length: homeGoals }, () => ({
@@ -67,6 +79,31 @@ export async function cancelMatchEvent(eventId: string, matchId: string) {
   const supabase = getSupabaseServerClient();
   const { error } = await supabase.from('match_events').update({ is_cancelled: true }).eq('id', eventId);
   if (error) throw new Error(error.message);
+  revalidatePath(`/matches/${matchId}`);
+}
+
+// Re-open a finished match so the score can be re-entered. Marks every
+// event as cancelled (preserved for audit) and flips status back to
+// 'scheduled'. Doesn't touch lineups, officials, or scheduling.
+export async function reopenMatch(matchId: string) {
+  await requireCurrentUser();
+  const supabase = getSupabaseServerClient();
+
+  // 1. Cancel every event — match_scores is a view that recomputes
+  //    from match_events, so this also zeros the score automatically.
+  const { error: ce } = await supabase
+    .from('match_events')
+    .update({ is_cancelled: true })
+    .eq('match_id', matchId);
+  if (ce) throw new Error(`reopen_cancel_events_failed: ${ce.message}`);
+
+  // 2. Reset the match itself.
+  const { error: ue } = await supabase
+    .from('matches')
+    .update({ status: 'scheduled', started_at: null, finished_at: null })
+    .eq('id', matchId);
+  if (ue) throw new Error(`reopen_match_update_failed: ${ue.message}`);
+
   revalidatePath(`/matches/${matchId}`);
 }
 

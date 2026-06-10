@@ -11,6 +11,7 @@ import { formatHebrewDate, formatHebrewTime, formatScore, contrastText } from '@
 import { LiveTracker } from '@/components/match/live-tracker';
 import { RetroScoreForm } from '@/components/match/retro-score-form';
 import { CancelEventButton } from '@/components/match/cancel-event-button';
+import { ReopenMatchButton } from '@/components/match/reopen-match-button';
 
 export const dynamic = 'force-dynamic';
 
@@ -105,6 +106,10 @@ export default async function MatchDetailPage({ params }: { params: { id: string
             </Badge>
             {canManage && (
               <>
+                {/* Reopen a finished match so the score can be corrected.
+                    Available only when the match is finished — RetroScoreForm
+                    handles the 'scheduled' case below. */}
+                {m.status === 'finished' && <ReopenMatchButton matchId={m.id} />}
                 <Link href={`/matches/${m.id}/edit`} className="size-9 rounded-lg bg-white dark:bg-ink-800 ring-1 ring-ink-200 dark:ring-ink-700 grid place-items-center hover:bg-ink-50 dark:hover:bg-ink-700 text-ink-700 dark:text-ink-200" aria-label={he.common.edit}>
                   <Pencil className="size-4" />
                 </Link>
@@ -150,7 +155,13 @@ export default async function MatchDetailPage({ params }: { params: { id: string
       )}
 
       {canScore && m.status === 'scheduled' && (
-        <RetroScoreForm matchId={m.id} />
+        <RetroScoreForm
+          matchId={m.id}
+          isCup={(() => {
+            const c: any = Array.isArray(m.competition) ? m.competition[0] : m.competition;
+            return c?.type === 'cup';
+          })()}
+        />
       )}
 
       {/* Event timeline */}

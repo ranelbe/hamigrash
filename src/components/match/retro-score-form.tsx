@@ -9,12 +9,16 @@ import { he } from '@/lib/i18n/he';
 import { toast } from '@/lib/stores/toast';
 import { enterFinalScore } from '@/lib/actions/matches';
 
-export function RetroScoreForm({ matchId }: { matchId: string }) {
+export function RetroScoreForm({ matchId, isCup = false }: { matchId: string; isCup?: boolean }) {
   const router = useRouter();
   const [home, setHome] = useState<string>('0');
   const [away, setAway] = useState<string>('0');
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  // For cup matches, a tie isn't a valid final result — block submit
+  // client-side so the user gets feedback the instant they see the tie.
+  const isTie = home !== '' && away !== '' && Number(home) === Number(away);
+  const blockedTie = isCup && isTie;
 
   function validate(): { home: number; away: number } | null {
     const next: Record<string, string> = {};
@@ -53,6 +57,7 @@ export function RetroScoreForm({ matchId }: { matchId: string }) {
       <CardBody>
         <p className="text-sm text-ink-500 dark:text-ink-400 mb-4">
           הזנה רטרואקטיבית — שערים נרשמים כאירועים אנונימיים. ניתן יהיה להוסיף פרטי שחקנים לאחר מכן.
+          {isCup && <span className="block mt-1 text-amber-700 dark:text-amber-300">משחק גביע — חייב להסתיים עם מנצח (לא תיקו).</span>}
         </p>
         <form className="flex flex-wrap items-start gap-3" onSubmit={submit} noValidate>
           <Input
@@ -75,9 +80,14 @@ export function RetroScoreForm({ matchId }: { matchId: string }) {
             error={errors.away || undefined}
           />
           <div className="pt-7">
-            <Button type="submit" loading={submitting}>{he.common.save}</Button>
+            <Button type="submit" loading={submitting} disabled={blockedTie}>{he.common.save}</Button>
           </div>
         </form>
+        {blockedTie && (
+          <p className="mt-3 text-sm text-amber-700 dark:text-amber-300">
+            במשחק גביע אסור תיקו — שנה את אחת התוצאות כדי שיהיה מנצח.
+          </p>
+        )}
       </CardBody>
     </Card>
   );
