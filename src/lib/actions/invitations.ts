@@ -58,8 +58,15 @@ export async function revokeInvitation(invitationId: string) {
   await requireCurrentUser();
   if (!(await getIsAppAdmin())) throw new Error('not_authorized');
   const supabase = getSupabaseServerClient();
-  const { error } = await supabase.from('invitations').update({ status: 'revoked' }).eq('id', invitationId);
+  // .select() so we can detect RLS-silently-blocked writes (returns
+  // 0 rows without raising). Without it, the UI thinks the action
+  // succeeded when nothing actually happened.
+  const { data, error } = await supabase.from('invitations')
+    .update({ status: 'revoked' })
+    .eq('id', invitationId)
+    .select('id');
   if (error) throw new Error(error.message);
+  if (!data?.length) throw new Error('הביטול נחסם — אין הרשאת RLS לעדכון השורה');
   revalidatePath('/invitations');
 }
 
@@ -69,8 +76,16 @@ export async function deleteInvitation(invitationId: string) {
   await requireCurrentUser();
   if (!(await getIsAppAdmin())) throw new Error('not_authorized');
   const supabase = getSupabaseServerClient();
-  const { error } = await supabase.from('invitations').delete().eq('id', invitationId);
+  const { data, error } = await supabase.from('invitations')
+    .delete()
+    .eq('id', invitationId)
+    .select('id');
   if (error) throw new Error(error.message);
+  if (!data?.length) {
+    // Either RLS denied silently, the row doesn't exist, or migration
+    // 0027 (the DELETE policy) hasn't been applied yet.
+    throw new Error('המחיקה נחסמה — ודא שמיגרציה 0027 רצה ב-DB');
+  }
   revalidatePath('/invitations');
 }
 
