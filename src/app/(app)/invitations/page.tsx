@@ -5,7 +5,7 @@ import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { he } from '@/lib/i18n/he';
 import { NewInvitationForm } from './_form';
-import { RevokeInvitationButton } from '@/components/invitations/revoke-button';
+import { InvitationActions } from '@/components/invitations/invitation-actions';
 import { ReshareButton } from '@/components/invitations/reshare-button';
 import { formatHebrewDate } from '@/lib/utils';
 
@@ -53,19 +53,17 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
                   </Badge>
                   <span className="text-xs text-ink-400 tabular">{formatHebrewDate(i.expires_at)}</span>
                   {i.status === 'pending' && (
-                    <>
-                      <ReshareButton
-                        token={i.token}
-                        email={i.email}
-                        contextLabel={i.team?.name
-                          ? `מנהל קבוצה — ${i.team.name}`
-                          : i.competition?.name
-                            ? `מארגן תחרות — ${i.competition.name}`
-                            : ''}
-                      />
-                      <RevokeInvitationButton id={i.id} />
-                    </>
+                    <ReshareButton
+                      token={i.token}
+                      email={i.email}
+                      contextLabel={i.team?.name
+                        ? `מנהל קבוצה — ${i.team.name}`
+                        : i.competition?.name
+                          ? `מארגן תחרות — ${i.competition.name}`
+                          : ''}
+                    />
                   )}
+                  <InvitationActions id={i.id} status={i.status} />
                 </li>
               ))}
             </ul>
