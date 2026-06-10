@@ -41,8 +41,14 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
   const [submitting, setSubmitting] = useState(false);
   const { errors, validate, clear } = useFormErrors();
   // Just-created invitation — drives the share UI (link / WhatsApp / QR).
-  // Cleared when the user starts entering a new invitation.
-  const [shareInvite, setShareInvite] = useState<{ token: string; email: string | null; context: string } | null>(null);
+  // emailSent tells the share card whether Resend auto-delivered the
+  // invitation (and therefore the mailto fallback is unnecessary).
+  const [shareInvite, setShareInvite] = useState<{
+    token: string;
+    email: string | null;
+    context: string;
+    emailSent: boolean;
+  } | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -59,13 +65,14 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
     if (!parsed) { toast.error('יש לתקן את השדות המסומנים'); return; }
     setSubmitting(true);
     try {
-      const created = await createInvitation(parsed as any);
-      toast.success('ההזמנה נוצרה');
+      const created = await createInvitation(parsed as any) as any;
+      const emailSent = !!created.emailSent;
+      toast.success(emailSent ? `הזמנה נשלחה ל-${email}` : 'ההזמנה נוצרה');
       // Build a label so the share card knows what context this is.
       const context = kind === 'team'
         ? `מנהל קבוצה — ${teams.find(t => t.id === teamId)?.name ?? ''}`
         : `מארגן תחרות — ${competitions.find(c => c.id === compId)?.name ?? ''}`;
-      setShareInvite({ token: (created as any).token, email: email || null, context });
+      setShareInvite({ token: created.token, email: email || null, context, emailSent });
       setEmail(''); setMessage('');
       router.refresh();
     } catch (e: any) {
@@ -83,6 +90,7 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
           token={shareInvite.token}
           email={shareInvite.email}
           contextLabel={shareInvite.context}
+          emailSent={shareInvite.emailSent}
           onClose={() => setShareInvite(null)}
         />
       )}

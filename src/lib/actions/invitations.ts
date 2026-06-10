@@ -29,18 +29,23 @@ export async function createInvitation(input: InvitationCreateInput) {
   const { data, error } = await supabase.from('invitations').insert(insertable).select('*').single();
   if (error) throw new Error(error.message);
 
-  // Email is best-effort: if Resend isn't configured, or the send fails
-  // for any reason, the invitation is still valid (the token is on the
-  // row) and the admin can deliver it via WhatsApp / QR / copy-link.
-  // Logging the error helps diagnose later without blocking the share UI.
+  // Email is best-effort. We track success/failure so the UI can show
+  // '✓ נשלח אוטומטית' when Resend worked and fall back to a manual
+  // mailto button when it didn't (no key, sandbox dropped recipient, ...)
+  let emailSent = false;
+  let emailError: string | null = null;
   try {
     await sendInvitationEmail(data);
-  } catch (e) {
-    console.warn('[invitation] email send failed — invitation is still valid:', e);
+    emailSent = true;
+  } catch (e: any) {
+    emailError = e?.message ?? String(e);
+    console.warn('[invitation] email send failed — invitation is still valid:', emailError);
   }
 
   revalidatePath('/invitations');
-  return data;
+  // The form reads emailSent off this returned object to decide which
+  // UI state to render. The DB row is preserved untouched as `invitation`.
+  return { ...data, emailSent, emailError } as typeof data & { emailSent: boolean; emailError: string | null };
 }
 
 export async function revokeInvitation(invitationId: string) {

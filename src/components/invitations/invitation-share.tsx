@@ -1,28 +1,32 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Check, MessageCircle, QrCode, X, Mail } from 'lucide-react';
+import { Copy, Check, MessageCircle, QrCode, X, Mail, MailCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 /**
  * Show every channel an admin can use to deliver an invitation:
+ *   • Status chip — '✓ נשלח אוטומטית' when Resend delivered, otherwise
+ *     a mailto button as a manual fallback
  *   • Copy the raw link
  *   • Open WhatsApp with a pre-filled message
- *   • Display a QR code (rendered server-side by api.qrserver.com — no deps)
- *   • Mailto: link (for users who actually want email)
+ *   • Display a QR code (rendered by api.qrserver.com — no deps)
  *
- * Compact (inline pills) by default; pass `inModal=true` to render the
- * full card with QR + message preview.
+ * The mailto button only appears when emailSent=false — once the
+ * server confirms Resend handled it, the manual button just confuses
+ * the admin ("do I still need to click this?").
  */
 export function InvitationShare({
   token,
   email,
   contextLabel,
+  emailSent = false,
   onClose,
 }: {
   token: string;
   email?: string | null;
   contextLabel?: string; // e.g. 'מנהל קבוצה — קבוצה אדומה'
+  emailSent?: boolean;
   onClose?: () => void;
 }) {
   const [copied, setCopied] = useState(false);
@@ -87,24 +91,36 @@ ${inviteUrl}`,
         </Button>
       </div>
 
-      {/* Channel buttons */}
-      <div className="grid grid-cols-2 gap-2">
+      {/* Status / channel row */}
+      {emailSent && email ? (
+        <div className="rounded-xl bg-pitch-50 dark:bg-pitch-950/40 ring-1 ring-pitch-200 dark:ring-pitch-800 px-4 py-3 flex items-center gap-3">
+          <MailCheck className="size-5 text-pitch-700 dark:text-pitch-400 shrink-0" />
+          <div className="text-sm leading-tight">
+            <div className="font-medium text-pitch-900 dark:text-pitch-100">המייל נשלח אוטומטית</div>
+            <div className="text-xs text-pitch-700 dark:text-pitch-300" dir="ltr">{email}</div>
+          </div>
+        </div>
+      ) : null}
+
+      <div className={emailSent ? '' : 'grid grid-cols-2 gap-2'}>
         <a
           href={waUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="h-12 rounded-xl bg-[#25D366] text-white inline-flex items-center justify-center gap-2 font-medium hover:bg-[#1ebe57] transition-colors"
+          className={`h-12 rounded-xl bg-[#25D366] text-white inline-flex items-center justify-center gap-2 font-medium hover:bg-[#1ebe57] transition-colors ${emailSent ? 'w-full' : ''}`}
         >
           <MessageCircle className="size-5" />
-          שלח ב-WhatsApp
+          {emailSent ? 'שלח גם ב-WhatsApp' : 'שלח ב-WhatsApp'}
         </a>
-        <a
-          href={mailUrl}
-          className="h-12 rounded-xl bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 text-ink-800 dark:text-ink-100 inline-flex items-center justify-center gap-2 font-medium hover:bg-ink-50 dark:hover:bg-ink-800 transition-colors"
-        >
-          <Mail className="size-5" />
-          שלח באימייל
-        </a>
+        {!emailSent && (
+          <a
+            href={mailUrl}
+            className="h-12 rounded-xl bg-white dark:bg-ink-700 ring-1 ring-ink-200 dark:ring-ink-600 text-ink-800 dark:text-ink-100 inline-flex items-center justify-center gap-2 font-medium hover:bg-ink-50 dark:hover:bg-ink-800 transition-colors"
+          >
+            <Mail className="size-5" />
+            שלח באימייל
+          </a>
+        )}
       </div>
 
       {/* QR code */}
