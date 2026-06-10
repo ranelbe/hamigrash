@@ -111,7 +111,10 @@ export const matchEventSchema = z.object({
 export type MatchEventInput = z.infer<typeof matchEventSchema>;
 
 export const invitationCreateSchema = z.object({
-  email: z.string().email({ message: 'כתובת דוא"ל לא תקינה' }),
+  // Email is OPTIONAL — only needed if the admin wants the server to
+  // auto-send the invitation link via Resend. The token alone is the
+  // authentication secret; the link works for whoever holds it.
+  email: z.string().email({ message: 'כתובת דוא"ל לא תקינה' }).optional().or(z.literal('')),
   kind: z.enum(['team', 'competition', 'match_official']),
   team_id: z.string().uuid().optional(),
   competition_id: z.string().uuid().optional(),

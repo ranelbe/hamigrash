@@ -119,7 +119,16 @@ export function NewInvitationForm({ teams, competitions, defaultTeam, defaultCom
             </div>
           )}
 
-          <Input type="email" label={he.invitation.email} value={email} onChange={e => { setEmail(e.target.value); clear('email'); }} dir="ltr" placeholder="name@example.com" error={errors.email} />
+          <Input
+            type="email"
+            label="אימייל (אופציונלי)"
+            hint="רק אם רוצה שהמערכת תשלח את הקישור באימייל אוטומטית. אפשר להשאיר ריק ולשתף ב-WhatsApp/QR."
+            value={email}
+            onChange={e => { setEmail(e.target.value); clear('email'); }}
+            dir="ltr"
+            placeholder="name@example.com"
+            error={errors.email}
+          />
 
           {kind === 'team' ? (
             <div className="sm:col-span-2">

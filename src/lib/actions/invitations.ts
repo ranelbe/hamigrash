@@ -13,8 +13,12 @@ export async function createInvitation(input: InvitationCreateInput) {
   const parsed = invitationCreateSchema.parse(input);
   const supabase = getSupabaseServerClient();
 
+  // Email is now optional. Persisting NULL when blank so we can
+  // distinguish "admin chose not to auto-send" from "admin typed something".
+  const cleanEmail = parsed.email ? parsed.email.toLowerCase().trim() : null;
+
   const insertable = {
-    email: parsed.email.toLowerCase().trim(),
+    email: cleanEmail || null,
     kind: parsed.kind,
     team_id: parsed.team_id ?? null,
     competition_id: parsed.competition_id ?? null,
@@ -29,17 +33,19 @@ export async function createInvitation(input: InvitationCreateInput) {
   const { data, error } = await supabase.from('invitations').insert(insertable).select('*').single();
   if (error) throw new Error(error.message);
 
-  // Email is best-effort. We track success/failure so the UI can show
-  // '✓ נשלח אוטומטית' when Resend worked and fall back to a manual
-  // mailto button when it didn't (no key, sandbox dropped recipient, ...)
+  // Best-effort auto-send via Resend. Only attempted if the admin
+  // actually supplied an email — otherwise the link travels via
+  // WhatsApp / copy / QR exclusively.
   let emailSent = false;
   let emailError: string | null = null;
-  try {
-    await sendInvitationEmail(data);
-    emailSent = true;
-  } catch (e: any) {
-    emailError = e?.message ?? String(e);
-    console.warn('[invitation] email send failed — invitation is still valid:', emailError);
+  if (cleanEmail) {
+    try {
+      await sendInvitationEmail(data);
+      emailSent = true;
+    } catch (e: any) {
+      emailError = e?.message ?? String(e);
+      console.warn('[invitation] email send failed — invitation is still valid:', emailError);
+    }
   }
 
   revalidatePath('/invitations');

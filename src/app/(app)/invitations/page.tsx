@@ -41,7 +41,9 @@ export default async function InvitationsPage({ searchParams }: { searchParams: 
               {invitations!.map((i: any) => (
                 <li key={i.id} className="py-3 flex items-center gap-3 flex-wrap">
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium truncate">{i.email}</div>
+                    <div className="font-medium truncate">
+                      {i.email ?? <span className="text-ink-400 italic">קישור בלבד</span>}
+                    </div>
                     <div className="text-xs text-ink-500 dark:text-ink-400">
                       {i.team?.name ?? i.competition?.name ?? `משחק #${i.match?.id?.slice(0,8)}`}
                       {' · '}
