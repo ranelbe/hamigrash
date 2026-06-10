@@ -129,9 +129,11 @@ export async function revokeAcceptedAccess(invitationId: string) {
   await supabase.from('invitations').update({ status: 'revoked' }).eq('id', invitationId);
 
   revalidatePath('/invitations');
-  // Also bust the cache for the entity whose membership we just changed.
+  // Also bust the cache for the entity whose membership we just changed,
+  // plus dashboards (where 'בניהול שלי' is computed off memberships).
   if (inv.team_id) revalidatePath(`/teams/${inv.team_id}`);
   if (inv.competition_id) revalidatePath(`/competitions/${inv.competition_id}`);
+  revalidatePath('/dashboard');
 }
 
 export async function acceptInvitationByToken(token: string) {

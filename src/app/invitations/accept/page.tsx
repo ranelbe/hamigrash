@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
+import { revalidatePath } from 'next/cache';
 import { getSupabaseServerClient } from '@/lib/supabase/server';
 import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui/card';
 import { he } from '@/lib/i18n/he';
@@ -62,6 +63,18 @@ export default async function AcceptInvitationPage({
   if (error) {
     return <ErrorCard msg={prettify(error.message)} />;
   }
+
+  // Bust every server-side render cache that could be showing stale
+  // membership / status data. Without this, the dashboard would
+  // continue serving the pre-acceptance snapshot until a hard refresh.
+  //   - /invitations: the row's status flips to 'accepted'
+  //   - /dashboard:   'בניהול שלי' now includes the new team/competition
+  //   - /teams/[id]:  the 'חברי קבוצה' panel needs the new row
+  //   - /competitions/[id]: same for organisers
+  revalidatePath('/invitations');
+  revalidatePath('/dashboard');
+  revalidatePath('/teams', 'layout');
+  revalidatePath('/competitions', 'layout');
 
   // Success → straight to the dashboard, the new role is already on the user.
   redirect('/dashboard');
