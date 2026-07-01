@@ -197,25 +197,6 @@ hamigrash/
 
 ---
 
-## 📸 צילומי מסך
-
-> צילומי המסך למטה מציגים את המסכים המרכזיים באפליקציה. כל מסך מתועד ב-light mode + dark mode.
-
-```
-docs/screenshots/  ← יש למקם כאן קבצי PNG לכל מסך
-```
-
-- `dashboard-light.png` / `dashboard-dark.png` — לוח בקרה + "בניהול שלי"
-- `balancer-picking.png` / `balancer-result.png` — לפני ואחרי איזון קבוצות
-- `competition-league.png` — דף תחרות עם טבלת ליגה + לוח משחקים
-- `competition-cup.png` — bracket גביע עם byes
-- `match-live.png` — LiveTracker בזמן אמת עם הזנת אירועים
-- `player-card.png` — כרטיס דירוגי שחקן (FIFA-style)
-- `invitation-share.png` — כרטיס שיתוף הזמנה עם WhatsApp/QR/מייל
-- `mobile-nav.png` — תפריט המבורגר במובייל
-
----
-
 ## 🖥 תיאור המסכים
 
 ### 🏠 דשבורד (`/dashboard`)
