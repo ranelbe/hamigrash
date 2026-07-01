@@ -1,244 +1,398 @@
-# הַמִּגְרָשׁ — HaMigrash
+# ⚽ HaMigrash — הַמִּגְרָשׁ
 
-A Hebrew-first, RTL-first, mobile-first football management platform for amateur leagues.
+> פלטפורמת ניהול ליגות כדורגל חובבים בעברית, RTL, פרונט-אנד מודרני עם Supabase כ-backend מלא.
 
-> All data is derived from **match events**. There is no manual standings editing — points, top scorers, player stats, and brackets all fall out of the event stream.
-
----
-
-## 1. Stack
-
-| Layer | Choice |
-|---|---|
-| Frontend | Next.js 14 App Router, TypeScript, Tailwind, RTL |
-| State | TanStack Query, Zustand |
-| Validation | Zod |
-| Backend | Supabase (PostgreSQL + Auth + Realtime + RLS) |
-| Auth | Google OAuth only (no passwords) |
-| Email | Resend (invitations) — falls back to `console.info` in dev |
-| Offline | IndexedDB (Dexie) event queue, idempotent on `client_id` |
-| Hosting | Vercel |
+הַמִּגְרָשׁ (HaMigrash) היא אפליקציית ווב לניהול מלא של ליגות וגביעי כדורגל חובבים — מדחיפת שחקנים לקבוצות מאוזנות, דרך יצירת לוח משחקים אוטומטי, ועד ניקוד חי בזמן אמת וטבלת ליגה שמתעדכנת מאירועי המשחק.
 
 ---
 
-## 2. Architecture at a glance
+## 📋 תוכן עניינים
 
-```
-                ┌─────────────────────────────┐
-                │  Next.js (App Router, RTL)  │
-                │  - Public pages (/c /t /m /p)│
-                │  - Authed app (/dashboard …)│
-                │  - Server actions           │
-                │  - API routes               │
-                └────────────┬────────────────┘
-                             │ supabase-js
-                             ▼
-                ┌─────────────────────────────┐
-                │  Supabase (Postgres)        │
-                │  - RLS on every table       │
-                │  - SECURITY DEFINER helpers │
-                │  - SQL functions:           │
-                │      competition_standings  │
-                │      head_to_head           │
-                │      player_stats           │
-                │      accept_invitation      │
-                │  - Triggers:                │
-                │      auto-promote creator   │
-                │      flip match status      │
-                │  - Realtime publication     │
-                └─────────────────────────────┘
-```
-
-Permissions are **entity-based** — there are no global roles. A user can be:
-- `manager` / `assistant` / `player` on a specific **team**
-- `organiser` / `admin` / `scorer` on a specific **competition**
-- `referee` / `scorer` / `assistant` on a specific **match**
-
-RLS enforces this. The UI is not trusted.
+- [תיאור הפרויקט](#-תיאור-הפרויקט)
+- [מטרת המערכת](#-מטרת-המערכת)
+- [טכנולוגיות](#-טכנולוגיות)
+- [הוראות התקנה](#-הוראות-התקנה)
+- [מבנה הפרויקט](#-מבנה-הפרויקט)
+- [תיאור המסכים](#-תיאור-המסכים)
+- [רשימת הפיצ'רים](#-רשימת-הפיצרים)
+- [מודל ההרשאות](#-מודל-ההרשאות)
+- [דיפלוי](#-דיפלוי)
 
 ---
 
-## 3. Setup
+## 🎯 תיאור הפרויקט
 
-### Prerequisites
-- Node 20+, pnpm or npm
-- A Supabase project (free tier is fine)
+הַמִּגְרָשׁ נבנתה מהיסוד לענות על נקודת כאב אמיתית של מארגני ליגות חובבים בישראל — כל התהליך שנעשה בקבוצות WhatsApp וגליונות אקסל, עם המון בלגן, זיוף תוצאות, ושחקנים שלא יודעים מתי המשחק הבא. האפליקציה מרכזת הכל במקום אחד, עם ממשק עברי מלא (RTL), אימות חד-משמעי של מי מנהל את מה, וסטטיסטיקה שמחושבת אוטומטית מאירועי המשחק.
 
-### Install
+**מיועד ל:**
+- 🎽 מארגני ליגות חובבים בשכונה / במקום העבודה
+- 🏆 מארגני טורנירי גביע חד-פעמיים
+- ⚽ קבוצות ידידים שנפגשות לשחק שבועית ורוצות למדוד ביצועים
+
+---
+
+## 🎨 מטרת המערכת
+
+1. **לחסל את התלות באקסל וב-WhatsApp** לניהול ליגה / גביע
+2. **לאזן קבוצות אוטומטית** לפי מיומנויות שחקנים, עמדות, וקבוצות אימון
+3. **לייצר לוחות משחקים אוטומטיים** — ליגה (round-robin) או גביע (bracket)
+4. **לתעד תוצאות ואירועים בזמן אמת** — עם רישום פרטני של גולים, כרטיסים, הכנסות/יציאות
+5. **לחשב טבלת ליגה + מלכי שערים אוטומטית** ללא התערבות אנושית
+6. **להזמין משתמשים בצורה מבוקרת** — token-based invitations דרך WhatsApp / QR / אימייל
+7. **לשמור על שקיפות** — קישור ציבורי לכל תחרות עם טבלה ולוח משחקים מתעדכנים חיים
+
+---
+
+## 🛠 טכנולוגיות
+
+### Frontend
+- **[Next.js 14](https://nextjs.org/)** (App Router + Server Components + Server Actions)
+- **[React 18](https://react.dev/)** עם Suspense ו-Streaming
+- **[TypeScript 5](https://www.typescriptlang.org/)** במצב strict
+- **[Tailwind CSS 3](https://tailwindcss.com/)** עם darkMode: 'class' וטוקנים מותאמים לעברית
+- **[Lucide React](https://lucide.dev/)** לאייקונים
+- **[Zustand](https://zustand-demo.pmnd.rs/)** ל-state ניתן לשימוש חוזר (toast, טופסים)
+- **[Dexie](https://dexie.org/)** ל-IndexedDB (offline event queue למשחקים בזמן אמת)
+
+### Backend
+- **[Supabase](https://supabase.com/)** — Postgres, Auth, RLS, Realtime, Storage
+- **PostgreSQL 15** עם Row-Level Security על כל טבלה
+- **RPC functions** (SECURITY DEFINER) ללוגיקה שמעורבת בכמה טבלאות (`accept_invitation`, `competition_standings`, `player_stats`, `can_manage_match` וכו')
+- **Triggers** ל-bookkeeping אוטומטי (יוצר קבוצה → מתווסף כמנהל; אירוע גול ראשון → הסטטוס עובר ל-live; period_end אחרון → finished)
+
+### שירותים חיצוניים
+- **[Resend](https://resend.com/)** לשליחת מיילים (חינמי עד 100/יום)
+- **[data.gov.il](https://data.gov.il/)** לאוטו-סופלמנטציה של ערים ורחובות ישראליים (CKAN API)
+- **[api.qrserver.com](https://goqr.me/api/)** ל-QR codes של קישורי הזמנה
+- **[Vercel](https://vercel.com/)** לדיפלוי + CDN
+- **[Google OAuth](https://developers.google.com/identity/protocols/oauth2)** לכניסת משתמשים
+
+### שיטות פיתוח
+- **Server-first** — כמעט הכל בקומפוננטות שרת של Next.js; קליינט רק היכן שדרוש
+- **Type-safe** מקצה לקצה עם Zod schemas + טיפוסים אוטומטיים מ-Supabase
+- **RTL-first** — dir="rtl" ב-html; כל הרכיבים תוכננו לעברית מלכתחילה
+- **Defense-in-depth** — RLS ב-DB + בדיקות הרשאה ב-action + הסתרת UI ללא הרשאות
+
+---
+
+## 🚀 הוראות התקנה
+
+### דרישות מוקדמות
+- Node.js 18+ ו-npm 9+
+- חשבון [Supabase](https://supabase.com/) (חינמי)
+- חשבון [Resend](https://resend.com/) (אופציונלי — למיילים)
+
+### שלב 1 — clone והתקנת חבילות
 
 ```bash
+git clone https://github.com/ranelbe/hamigrash.git
 cd hamigrash
 npm install
-cp .env.example .env.local
-# fill in NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY
 ```
 
-### Configure Google OAuth (Supabase Dashboard → Authentication → Providers → Google)
+### שלב 2 — הגדרת Supabase
 
-1. Create OAuth credentials in Google Cloud Console.
-2. Authorized redirect URI: `https://<your-project>.supabase.co/auth/v1/callback`
-3. Paste the client ID / secret into Supabase.
-4. **Disable** email/password sign-in (we are Google-only).
+1. צור פרויקט חדש ב-Supabase
+2. פתח את **SQL Editor** ורוץ את המיגרציות מ-`supabase/migrations/` בסדר עולה (0001 → 0027)
+3. פתח את **Authentication → Providers → Google** והפעל Google OAuth
+4. פתח את **Authentication → URL Configuration** והוסף:
+   - Site URL: `http://localhost:3000` (או ה-Vercel URL בפרודקשן)
+   - Redirect URLs: `http://localhost:3000/auth/callback`
 
-### Apply database migrations
+### שלב 3 — משתני סביבה
 
-Run the SQL files in `supabase/migrations/` **in order**:
+צור קובץ `.env.local` בשורש הפרויקט:
 
-```
-0001_extensions_and_enums.sql
-0002_profiles.sql
-0003_teams_players.sql
-0004_competitions.sql
-0005_matches_and_events.sql
-0006_invitations_and_shares.sql
-0007_views_and_standings.sql
-0008_invitation_accept.sql
-0009_rls_helpers.sql
-0010_rls_policies.sql
-0011_triggers.sql
-0012_realtime.sql
-```
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR-PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=YOUR-ANON-KEY
+SUPABASE_SERVICE_ROLE_KEY=YOUR-SERVICE-ROLE-KEY
 
-Either paste each into the SQL editor, or via CLI:
+# App
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
 
-```bash
-supabase link --project-ref <ref>
-supabase db push        # if you store them under supabase/migrations
+# Resend (אופציונלי — אם ריק, האפליקציה פשוט לא תשלח מיילים אוטומטית)
+RESEND_API_KEY=re_XXXXXXXXXXXXXX
+RESEND_FROM=HaMigrash <onboarding@resend.dev>
 ```
 
-### Run
+### שלב 4 — הרצה
 
 ```bash
 npm run dev
-# → http://localhost:3000
 ```
+
+האפליקציה זמינה ב-http://localhost:3000
+
+### שלב 5 — הגדרת אדמין ראשון
+
+היכנס למערכת עם Google. אחר כך ב-Supabase SQL Editor:
+
+```sql
+insert into public.app_admins (user_id)
+select id from auth.users where email = 'YOUR-EMAIL@gmail.com';
+```
+
+עכשיו יש לך הרשאות אדמין מלאות.
+
+### שלב 6 (אופציונלי) — מוק דאטה לבדיקות
+
+הרץ ב-Supabase SQL Editor את `supabase/reset-players-only.sql` — יוצר 70 שחקנים + 4 קבוצות אימון + קבוצת שחקנים חופשיים.
+
+לצירוף 4 משתמשי מוק לבדיקת תפקידים הרץ את `supabase/seed-mock-users.sql` — יוצר admin/manager/organiser/viewer עם סיסמה `Test1234!`. בדף ה-login יש 4 כפתורי quick-login שקופצים ישר לכל תפקיד ללא סיסמה.
 
 ---
 
-## 4. Where things live
+## 📂 מבנה הפרויקט
 
 ```
 hamigrash/
-├── supabase/migrations/      # schema, RLS, functions, triggers
 ├── src/
-│   ├── app/
-│   │   ├── page.tsx          # landing
-│   │   ├── login/            # Google login
-│   │   ├── auth/callback/    # OAuth callback (claims pending invites)
-│   │   ├── (app)/            # authed shell (sidebar, topbar)
-│   │   │   ├── dashboard/    # organiser control center
-│   │   │   ├── teams/        # list + new + detail
-│   │   │   ├── competitions/ # list + new + detail (standings, fixtures)
-│   │   │   ├── matches/      # list + new + detail (live tracker, retro)
-│   │   │   ├── players/      # list + detail (stat sheet + FIFA-style card)
-│   │   │   ├── invitations/  # create + accept-by-token
-│   │   │   └── balancer/     # team balancer
-│   │   ├── c/[slug]/         # public competition page (SEO-friendly)
-│   │   ├── t/[slug]/         # public team page
-│   │   ├── m/[id]/           # public match page (realtime)
-│   │   ├── p/[id]/           # public player page
-│   │   ├── s/[token]/        # share-link resolver
-│   │   └── api/              # JSON endpoints (invitations, events batch, share)
-│   ├── components/           # ui/, layout/, match/, balancer/, standings/, player/
+│   ├── app/                          # Next.js App Router
+│   │   ├── (app)/                    # אזור מוגן (auth-only)
+│   │   │   ├── layout.tsx            # AppShell + auth gate
+│   │   │   ├── dashboard/            # 🏠 לוח בקרה ("בניהול שלי")
+│   │   │   ├── players/              # 👥 רשימת שחקנים + עריכה
+│   │   │   ├── teams/                # 🛡️ קבוצות + סגלים
+│   │   │   ├── competitions/         # 🏆 תחרויות (ליגות + גביעים)
+│   │   │   ├── matches/              # ⚽ פרטי משחק + הזנת תוצאה
+│   │   │   ├── balancer/             # ⚖️ מאזן קבוצות אוטומטי
+│   │   │   ├── training-groups/      # 📅 קבוצות אימון (admin only)
+│   │   │   └── invitations/          # 📨 הזמנות + ניהול
+│   │   ├── invitations/accept/       # קבלת הזמנה (public)
+│   │   ├── c/[slug]/                 # 🌐 דף תחרות ציבורי
+│   │   ├── t/[slug]/                 # 🌐 דף קבוצה ציבורי
+│   │   ├── m/[id]/                   # 🌐 דף משחק ציבורי (חי)
+│   │   ├── p/[id]/                   # 🌐 דף שחקן ציבורי
+│   │   ├── login/                    # 🔑 מסך התחברות
+│   │   ├── auth/callback/            # OAuth callback
+│   │   └── api/                      # Route handlers
+│   ├── components/                   # קומפוננטות UI
+│   │   ├── ui/                       # Card, Input, Button, Badge, Toast וכו'
+│   │   ├── balancer/                 # מאזן הקבוצות
+│   │   ├── match/                    # LiveTracker, MatchCard וכו'
+│   │   ├── invitations/              # InvitationShare, ReshareButton
+│   │   ├── competition/              # NextCupRoundButton וכו'
+│   │   ├── layout/                   # AppShell (כותרת + תפריט)
+│   │   └── theme/                    # ThemeToggle
 │   └── lib/
-│       ├── supabase/         # browser, server, middleware, admin, types
-│       ├── algorithms/       # fixtures, knockout, balancer, standings tie-breakers
-│       ├── actions/          # server actions (teams, players, competitions, matches, invitations)
-│       ├── schemas/          # zod
-│       ├── offline/          # IndexedDB event queue + background sync
-│       ├── i18n/he.ts        # all Hebrew strings (single source)
-│       └── utils.ts
-└── README.md
+│       ├── actions/                  # Server Actions (Next.js)
+│       ├── algorithms/               # balancer, fixtures, knockout
+│       ├── auth/                     # capabilities, app-admin
+│       ├── i18n/                     # מחרוזות עברית
+│       ├── queries/                  # helpers לשאילתות מורכבות
+│       ├── schemas/                  # Zod validation
+│       ├── stores/                   # Zustand (toast וכו')
+│       └── supabase/                 # server + browser clients
+├── supabase/
+│   ├── migrations/                   # 27+ מיגרציות ב-SQL
+│   ├── reset-players-only.sql        # seed נתוני בדיקה
+│   ├── seed-mock-users.sql           # 4 משתמשי בדיקה
+│   └── setup.sql                     # snapshot מלא של הסכימה
+├── public/                           # קבצים סטטיים
+├── tailwind.config.ts                # פלטת צבעים pitch/ink + darkMode
+└── next.config.mjs                   # קונפיגורציה של Next.js
 ```
 
 ---
 
-## 5. Key algorithms
+## 📸 צילומי מסך
 
-### Standings (`lib/algorithms/standings.ts` + SQL `competition_standings`)
-- Postgres computes the base table from `match_events` (no editable cache).
-- Order: points → GD → GF → name (in SQL).
-- For ties remaining after those, `applyTieBreakers()` adds **head-to-head** points
-  computed from the SQL `head_to_head` function. Bulk-applied per tied group.
-
-### Round-robin fixtures (`lib/algorithms/fixtures.ts`)
-- Berger / circle method.
-- Handles odd counts via a synthetic BYE that's filtered out.
-- `rounds = 2` produces home/away legs by reversing each pair in the return leg.
-
-### Knockout brackets (`lib/algorithms/knockout.ts`)
-- Standard tournament seeding (1 vs N, 2 vs N-1, …) interleaved so top seeds meet last.
-- Bye-aware for non-power-of-two field sizes.
-- Generates Round 0 matches up front; later rounds are created as winners are known
-  (UI not implemented in this drop — DB stores `bracket_round` / `bracket_slot` and is ready).
-
-### Team balancer (`lib/algorithms/balancer.ts`)
-1. Snake-deal players to teams by position group (GK → DF → FW → MF), each sorted by OVR.
-2. Hill-climb same-position swaps until max-min total-OVR gap ≤ 1 (or 200 iters).
-3. Position-preserving — never sticks all GKs on one team.
-
----
-
-## 6. Offline-first
-
-`lib/offline/event-queue.ts` (Dexie / IndexedDB):
-- Live tracker writes every event locally with a UUID `client_id`.
-- `lib/offline/sync.ts` flushes the queue to Supabase via `upsert(onConflict: client_id)`,
-  so retries are safe.
-- Re-flushes on `online` event and every 15s.
-- Server-side trigger flips match status (`scheduled → live → finished`) from events,
-  so the source of truth is preserved even if the queue arrives late.
-
----
-
-## 7. Invitation flow
+> צילומי המסך למטה מציגים את המסכים המרכזיים באפליקציה. כל מסך מתועד ב-light mode + dark mode.
 
 ```
-  Organiser ─ createInvitation ──► invitations row (status=pending, token=hex)
-                                          │
-                                          ▼
-                              email sent (Resend) with /invitations/accept?token=…
-                                          │
-                                          ▼
-  Invitee opens link ─► Google login ─► /auth/callback
-                                          │
-                                          ▼
-                              accept_invitation(token)  (SECURITY DEFINER)
-                                          │  validates email match
-                                          ▼
-                              team_members / competition_members / match_officials row created
+docs/screenshots/  ← יש למקם כאן קבצי PNG לכל מסך
 ```
 
-Email is the binding token: invite email must equal Google account email. The DB function rejects mismatches with `invitation_email_mismatch`.
+- `dashboard-light.png` / `dashboard-dark.png` — לוח בקרה + "בניהול שלי"
+- `balancer-picking.png` / `balancer-result.png` — לפני ואחרי איזון קבוצות
+- `competition-league.png` — דף תחרות עם טבלת ליגה + לוח משחקים
+- `competition-cup.png` — bracket גביע עם byes
+- `match-live.png` — LiveTracker בזמן אמת עם הזנת אירועים
+- `player-card.png` — כרטיס דירוגי שחקן (FIFA-style)
+- `invitation-share.png` — כרטיס שיתוף הזמנה עם WhatsApp/QR/מייל
+- `mobile-nav.png` — תפריט המבורגר במובייל
 
 ---
 
-## 8. Security notes
+## 🖥 תיאור המסכים
 
-- **No global admin.** `auth.uid()` alone gives the user only public read access.
-- All writes pass through RLS policies in `0010_rls_policies.sql`. Helpers in `0009_rls_helpers.sql` centralise permission checks (and avoid the classic RLS-vs-RLS recursion).
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only. It is not used by RLS-respecting paths — only by deliberately admin operations (none required for MVP runtime; it is included for future migrations/scripts).
-- Public share links produce read-only canonical URLs (`/c/<slug>`, `/m/<id>`, etc.) that hit the same RLS-public read paths — there is no separate "share" auth bypass.
+### 🏠 דשבורד (`/dashboard`)
+המסך הראשי אחרי התחברות. מציג:
+- **קיצורי דרך לפעולות** (admin): יצירת משחק / קבוצה / תחרות
+- **"בניהול שלי"** — כרטיסי תחרויות עם מונה קבוצות + חיווי סטטוס. קליק פותח את דף התחרות עם כל הקבוצות.
+- **המשחקים הקרובים שלי** — משחקים של קבוצות שאתה מנהל, עם רצועה צבעונית (ליגה=ירוק, גביע=כתום, ידידותי=אפור).
+- **תחרויות פעילות** + **תוצאות אחרונות**.
+
+### 👥 רשימת שחקנים (`/players`)
+כל השחקנים הפעילים במערכת. כל שחקן מציג את הקבוצות שהוא חבר בהן (many-to-many) עם צבעי הקבוצות. סינון לפי קבוצה + חיפוש.
+
+### 👤 דף שחקן (`/players/[id]`)
+- **כרטיס דירוגים** (רק לאדמין/מנהל) — 6 מיומנויות (PAC/SHO/PAS/DRI/DEF/PHY) בפורמט FIFA
+- **מטא-דאטה** — קבוצות פר תחרות, קבוצת אימון, כתובת (עיר + רחוב מ-data.gov.il)
+- **סטטיסטיקה** — הופעות, גולים, בישולים, כרטיסים, דקות
+- למחזיקי GK — סטטיסטיקת פנדלים והצלות
+
+### 🛡️ דף קבוצה (`/teams/[id]`)
+- לוגו + שם + מגרש בית
+- **סגל** — נשלף מ-`team_rosters` (junction table), עם מספר חולצה של השחקן בקבוצה הזו
+- **חברי צוות** — מנהלים ועוזרים
+- כפתורי עריכה / מחיקה לאדמין/מנהל
+
+### 🏆 דף תחרות (`/competitions/[id]`)
+- כותרת עם סוג תחרות + סטטוס + עונה
+- **הוספת קבוצות** — ניהול אילו קבוצות נרשמות לתחרות
+- **טבלה** (ליגות בלבד) — עם צורת האחרונים (W/D/L) של 5 המשחקים האחרונים
+- **לוח משחקים** — מקובץ לפי סבבים; לגביע יש הודעה מסבירה + כפתור "צור משחקי שלב הבא"
+- **קישור שיתוף ציבורי** — QR + URL לגישה ללא התחברות
+
+### ⚽ דף משחק (`/matches/[id]`)
+- כרטיס תוצאה + פרטי מפגש
+- **הזנת תוצאה רטרואקטיבית** (משחקים שלא התחילו) — במשחק גביע חוסם תיקו
+- **LiveTracker** — הזנת אירועים בזמן אמת (גול, כרטיס, חילוף) עם offline queue
+- **תיקון תוצאה** — כפתור לפתיחה מחדש של משחק שהסתיים לתיקון
+
+### ⚖️ מאזן קבוצות (`/balancer`) — Admin Only
+מסך הליבה של המערכת:
+1. בוחר N שחקנים
+2. מגדיר לכמה קבוצות לחלק (2–10)
+3. אלגוריתם 3-שלבי:
+   - **שלב A**: snake draft לפי עמדות (וודא שיש GK/DF/MF/FW בכל קבוצה)
+   - **שלב B**: hill-climb לאיזון סכום מיומנויות
+   - **שלב C**: polish לפי קבוצות אימון (רק אם לא פוגע ב-A/B)
+4. תוצאה — עורכים ידנית אם רוצים
+5. שומרים כ-**ליגה** (round-robin) או **גביע** (single-elimination bracket)
+
+### 📨 הזמנות (`/invitations`) — Admin Only
+- טופס יצירת הזמנה — מייל **אופציונלי**
+- אחרי יצירה — כרטיס עם 4 אופציות שיתוף: WhatsApp / העתק קישור / מייל אוטומטי (אם Resend מוגדר) / QR
+- רשימת הזמנות אחרונות עם סטטוס, מי אישר, כפתורי מחיקה/ביטול/הסרת הרשאה
+
+### 🌐 מסכים ציבוריים (ללא התחברות)
+- `/c/[slug]` — דף תחרות ציבורי (לשיתוף עם צופים)
+- `/t/[slug]` — דף קבוצה ציבורי
+- `/m/[id]` — דף משחק ציבורי חי
+- `/p/[id]` — דף שחקן ציבורי
 
 ---
 
-## 9. What's not in this drop
+## 🎯 רשימת הפיצ'רים
 
-The spec asks for the full system; the following are intentionally minimal scaffolds, ready to expand:
-- Cup bracket UI (DB is ready, generator emits Round 0).
-- Match lineup editor on the match page (server action is wired, UI is a stub).
-- Push notifications / share-card image generation.
+### ניהול שחקנים
+- ✅ יצירה / עריכה / מחיקה של שחקנים
+- ✅ 6 מיומנויות בסולם 0-100 (PAC, SHO, PAS, DRI, DEF, PHY) + 6 מיוחדות לשוער
+- ✅ many-to-many עם קבוצות (שחקן יכול להיות בכמה קבוצות במקביל)
+- ✅ קבוצות אימון (dropdown מנוהל)
+- ✅ כתובת מלאה עם autocomplete מ-data.gov.il (עיר → רחוב מסונן)
+- ✅ תמונת פרופיל (URL)
+- ✅ סטטיסטיקה אוטומטית מאירועי המשחק
+
+### ניהול קבוצות ותחרויות
+- ✅ יצירת קבוצות עם צבע + סמל + מגרש בית
+- ✅ יצירת תחרויות עם 1-4 סיבובים (round-robin) או גביע (knockout)
+- ✅ round-robin עם Berger algorithm
+- ✅ knockout bracket עם byes אוטומטיים לחזקות לא-2
+- ✅ טבלת ליגה מחושבת אוטומטית
+- ✅ קישור שיתוף ציבורי לכל תחרות
+
+### מאזן קבוצות (Auto-Balancer)
+- ✅ אלגוריתם 3-שלבי (עמדות → מיומנויות → קבוצות אימון)
+- ✅ חלוקה שווה + חיווי אם לא מסתדר
+- ✅ יצירת ליגה או גביע ישירות מהמאזן
+- ✅ יצירת לוח משחקים אוטומטי
+- ✅ מספרי חולצה אוטומטיים לכל קבוצה חדשה
+
+### ניהול משחקים
+- ✅ LiveTracker בזמן אמת (עם offline queue דרך Dexie)
+- ✅ הזנה רטרואקטיבית של תוצאה
+- ✅ אירועי משחק: גול (עם בישול), כרטיס צהוב/אדום, חילוף, פנדל, השלמת רבע
+- ✅ טריגר אוטומטי — הסטטוס משתנה מ-scheduled → live → finished לפי אירועים
+- ✅ פתיחה מחדש של משחק שהסתיים לתיקון תוצאה
+- ✅ מניעת תיקו במשחקי גביע (client + server)
+- ✅ יצירת סיבוב הבא בגביע אחרי סיום השלב הנוכחי
+
+### הזמנות והרשאות
+- ✅ token-based invitations (בלי חובת מייל)
+- ✅ 4 ערוצי שיתוף: WhatsApp, מייל, קישור להעתקה, QR code
+- ✅ שליחה אוטומטית דרך Resend (אם מוגדר)
+- ✅ ניהול הזמנות: מחיקה, ביטול, הסרת הרשאה שכבר ניתנה
+- ✅ הצגת מי בפועל אישר את ההזמנה (גם אם המייל שנשלח היה שונה)
+
+### חוויית משתמש
+- ✅ Dark mode מלא עם ThemeToggle
+- ✅ עברית מלאה + RTL בכל האפליקציה
+- ✅ Toast notifications בעברית
+- ✅ Placeholders + הודעות שגיאה בעברית
+- ✅ ולידציה מפורטת של טפסים (Zod) עם הודעות מסבירות
+- ✅ ההרשאות מסתירות תוכן שלא רלוונטי — אף אחד לא רואה כפתורים שלא רלוונטיים לו
+
+### התאמה למובייל
+- ✅ Responsive מלא (mobile-first Tailwind)
+- ✅ תפריט המבורגר במובייל
+- ✅ מגע-ידידותי (72dp targets)
 
 ---
 
-## 10. Smoke checklist after deploy
+## 🔐 מודל ההרשאות
 
-1. Sign in with Google → profile auto-created (`profiles` row exists).
-2. Create a team → you appear as `manager` in `team_members` (creator trigger).
-3. Create a competition → you appear as `organiser` (creator trigger).
-4. Add ≥ 2 teams to it → click **יצירת לוח משחקים** → rows appear in `matches`.
-5. Open a match, enter a retro 2-1 score → standings row updates (no manual edit).
-6. Open the public `/c/<slug>` URL in an incognito window → standings render.
-7. Invite a teammate by email → they receive a link → after Google login on the right account, `team_members` row appears.
+המערכת עובדת עם 4 רמות משתמש:
 
-Everything else is downstream of those steps.
+| תפקיד | מה יכול לעשות |
+|---|---|
+| **App Admin** (`app_admins`) | עוקף את כל ה-RLS. יכול הכל בכל התחרויות והקבוצות. |
+| **Competition Organiser** | מנהל תחרות ספציפית — יוצר משחקים, מזין תוצאות, מוסיף קבוצות |
+| **Team Manager** | מנהל קבוצה ספציפית — עורך שחקנים, מגיש הרכבים |
+| **Viewer** (default) | רק צפייה בתחרויות, קבוצות ומשחקים ציבוריים |
+
+**3 שכבות הגנה:**
+1. **UI Hide** — כפתורים שלא רלוונטיים מוסתרים
+2. **Server Action Check** — כל action בודק הרשאה לפני שינוי
+3. **RLS Policy** — DB דוחה כתיבה גם אם שכבות 1-2 נפרצו
+
+---
+
+## 🚢 דיפלוי
+
+### Vercel (מומלץ)
+
+1. חבר את הריפו ל-Vercel
+2. הגדר משתני סביבה (`Settings → Environment Variables`):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `SUPABASE_SERVICE_ROLE_KEY`
+   - `NEXT_PUBLIC_SITE_URL` (ה-URL של הפרודקשן)
+   - `RESEND_API_KEY` + `RESEND_FROM` (אופציונלי)
+3. Deploy → Vercel יבנה אוטומטית בכל push ל-`main`
+
+### עדכון Supabase Auth URLs לפרודקשן
+
+ב-Supabase Dashboard → Authentication → URL Configuration:
+- **Site URL**: `https://your-domain.vercel.app`
+- **Redirect URLs**: `https://your-domain.vercel.app/auth/callback`
+
+---
+
+## 📄 רישיון
+
+MIT — ראה `LICENSE` (במידה וקיים).
+
+---
+
+## 👥 צוות
+
+- **Ranel Ben-Ezra** — יזם, מפתח ראשי ומעצב
+
+---
+
+## 🙏 תודות
+
+- **[Supabase](https://supabase.com/)** על ה-BaaS המדהים
+- **[Vercel](https://vercel.com/)** על הפלטפורמת הפריסה
+- **[data.gov.il](https://data.gov.il/)** על נתונים ציבוריים פתוחים
+- **[Lucide](https://lucide.dev/)** על ספריית האייקונים היפה
+- **[Resend](https://resend.com/)** על שליחת המיילים
+
+---
+
+**נעים להשתמש! ⚽**
