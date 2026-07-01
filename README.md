@@ -381,18 +381,8 @@ MIT — ראה `LICENSE` (במידה וקיים).
 
 ## 👥 צוות
 
-- **Ranel Ben-Ezra** — יזם, מפתח ראשי ומעצב
-
----
-
-## 🙏 תודות
-
-- **[Supabase](https://supabase.com/)** על ה-BaaS המדהים
-- **[Vercel](https://vercel.com/)** על הפלטפורמת הפריסה
-- **[data.gov.il](https://data.gov.il/)** על נתונים ציבוריים פתוחים
-- **[Lucide](https://lucide.dev/)** על ספריית האייקונים היפה
-- **[Resend](https://resend.com/)** על שליחת המיילים
-
+-
+- **Ranel Ben Simman Tov**
 ---
 
 **נעים להשתמש! ⚽**
